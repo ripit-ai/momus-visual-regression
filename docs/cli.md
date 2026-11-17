@@ -95,6 +95,7 @@ exits 2 without saving a baseline.
 | `--commit SHA` | Record the commit this run tested. Stored on the run; no effect on the result. |
 | `--branch NAME` | Record the branch this run tested. |
 | `--pr N` | Record the pull request this run tested. |
+| `--json FILE` | Also write the results document to `FILE` ([JSON results](#json-results)). |
 
 On completion `momus run` prints, for example:
 
@@ -119,9 +120,56 @@ prod URLs included.
 | `--out FILE` | Override the report output path (default `momus-report.html`). |
 | `--report-images MODE` | `embed`, `link` or `thumbnails`; overrides `output.reportImages`. |
 | `--config FILE` | Path to the config file (default `./momus.config.ts`); used for `output.db` and `output.report`. |
+| `--json FILE` | Also write the run's results document to `FILE` ([JSON results](#json-results)). |
 
 Exits `0` on success and `2` if there is no DB file, no runs, or no run with that
 id (the message lists the ids available).
+
+## JSON results
+
+`--json FILE` on `run` or `report` writes the run's results as JSON, next to
+the HTML report, for CI scripts and other tools to read. `report --run ID
+--json FILE` exports any stored run, with no browser and no network. The
+format is part of the 1.x contract ([stability.md](stability.md)), and its JSON
+Schema is [results.schema.json](results.schema.json).
+
+```json
+{
+  "schemaVersion": 1,
+  "momusVersion": "1.1.0",
+  "verdict": "FAIL",
+  "summary": { "total": 4, "passed": 3, "failed": 1, "errored": 0, "added": 0, "removed": 0, "unstable": 0 },
+  "gate": { "allowAdded": false, "allowRemoved": false },
+  "run": { "id": 7, "status": "complete", "devBaseUrl": "https://dev.example.com", "ci": { "commit": "a1b2c3", "branch": null, "pr": "42" }, "…": "…" },
+  "baseline": { "id": 3, "createdAt": "2026-11-15T03:00:00.000Z", "viewports": [375, 1280], "…": "…" },
+  "comparisons": [
+    {
+      "targetId": "/about", "label": "/about", "viewport": 375,
+      "status": "ok", "outcome": "fail", "failsGate": true,
+      "diffScore": 0.0106, "failScore": 0.01,
+      "dev": { "url": "https://dev.example.com/about", "width": 375, "height": 900,
+               "image": { "sha256": "9f2c…", "bytes": 48213, "file": "momus-report-images/0001-dev.png" } },
+      "regions": [{ "x": 8, "y": 15, "width": 230, "height": 69 }], "regionCount": 2,
+      "error": null,
+      "…": "…"
+    }
+  ]
+}
+```
+
+- **`verdict`** uses the gate recorded on the run, as the report does. A run
+  that didn't complete is `FAIL`. `PASS` corresponds to exit `0` from `run`.
+- **`comparisons`** are worst first. `outcome` is `pass`, `fail`, `error`,
+  `added`, `removed` or `unstable`. `failsGate` says whether that row fails the
+  run.
+- Scores are fractions (`0.0106` is 1.06%), as in the config.
+- **An unknown value is `null`**, never a missing key: for example `diffScore`
+  on an error row, or a field that older runs didn't record.
+- **Images** carry a `sha256` and a size. `file` is the PNG's path when the
+  report wrote it to disk (`--report-images link` or `thumbnails`), relative to
+  the working directory unless `output.report` is absolute. With `embed` it is
+  `null`.
+- New fields may appear in any 1.x release. Ignore keys you don't know.
 
 ## Exit codes
 

@@ -15,6 +15,9 @@ export interface ParsedCli {
   runId?: number;
   /** `run --commit/--branch/--pr`: recorded on the run (RFC-0002). */
   ci?: CiMetadata;
+  /** `--json FILE`: also write the results document (RFC-0008). A flag only,
+   * like `--commit`: where CI wants it is the job's business, not the site's. */
+  jsonPath?: string;
 }
 
 type Command = Exclude<ParsedCli["command"], "help">;
@@ -38,6 +41,7 @@ const FLAGS = {
   commit: { type: "string", arg: "SHA" },
   branch: { type: "string", arg: "NAME" },
   pr: { type: "string", arg: "N" },
+  json: { type: "string", arg: "FILE" },
 } as const satisfies Record<string, { type: "string" | "boolean"; arg?: string }>;
 type Flag = keyof typeof FLAGS;
 
@@ -45,9 +49,9 @@ type Flag = keyof typeof FLAGS;
  * be silently ignored by a command that doesn't read it (RFC-0009, ADR-0039). */
 export const COMMAND_FLAGS: Record<Command, readonly Flag[]> = {
   run: ["dev", "prod", "out", "config", "concurrency", "max-pages", "crawl", "insecure", "browser", "snapshot",
-    "allow-added", "allow-removed", "report-images", "commit", "branch", "pr"],
+    "allow-added", "allow-removed", "report-images", "commit", "branch", "pr", "json"],
   snapshot: ["prod", "config", "concurrency", "max-pages", "crawl", "insecure", "browser"],
-  report: ["run", "out", "report-images", "config"],
+  report: ["run", "out", "report-images", "config", "json"],
   init: [],
   "install-browser": [],
 };
@@ -126,6 +130,7 @@ export function parseCliArgs(argv: string[]): ParsedCli {
     command, overrides, configPath: values.config as string | undefined,
     forceSnapshot: values.snapshot as boolean | undefined, runId,
     ci: Object.keys(ci).length ? ci : undefined,
+    jsonPath: values.json as string | undefined,
   };
 }
 

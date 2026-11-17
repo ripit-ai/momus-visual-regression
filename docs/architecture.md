@@ -177,6 +177,7 @@ src/
 │   ├── styles.ts       # the inline stylesheet; comparison modes are CSS layouts
 │   ├── client.ts       # the inline script: modes, zoom, keys, filters, grouping
 │   ├── images.ts       # embed | link | thumbnails → an ImageSource; writes linked files
+│   ├── results.ts      # --json document: Zod schema (the contract) + buildResults (pure)
 │   ├── thumbnail.ts    # WebP previews via Bun.Image (display only)
 │   └── report.ts       # read DB → write file
 ├── glob.ts             # matchPath(path, pattern) — one predicate for all globs

@@ -92,3 +92,33 @@ test("a complete run does not warn", async () => {
   expect(await reportCommand(parseCliArgs(["report", "--config", p.cfg]))).toBe(0);
   expect(err).not.toHaveBeenCalled();
 });
+
+test("--json writes the results document for the rendered run", async () => {
+  quiet();
+  const p = project();
+  const ids = seed(p.db, 2);
+  const json = join(dir, "results.json");
+  expect(await reportCommand(parseCliArgs(["report", "--config", p.cfg, "--run", String(ids[0]), "--json", json]))).toBe(0);
+  const doc = await Bun.file(json).json();
+  expect(doc).toMatchObject({ schemaVersion: 1, verdict: "PASS", run: { id: ids[0] } });
+  expect(doc.comparisons.map((c: { path: string }) => c.path)).toEqual(["/0"]);
+  expect(existsSync(p.out)).toBe(true);
+});
+
+test("--json names the linked PNGs, which exist", async () => {
+  quiet();
+  const p = project();
+  const db = openDb(p.db);
+  const id = startRun(db, { devBaseUrl: "d", prodBaseUrl: "p", configJson: "{}", startedAt: "t" });
+  const png = new Uint8Array([137, 80, 78, 71]);
+  saveComparison(db, id, { path: "/a", viewport: 375, devUrl: "d", prodUrl: "p", status: "ok", diffScore: 0.2,
+    failScore: 0.01, passed: false, devImage: png, prodImage: png, diffImage: png });
+  finishRun(db, id, "complete", "f");
+  db.close();
+  const json = join(dir, "results.json");
+  expect(await reportCommand(parseCliArgs(["report", "--config", p.cfg, "--report-images", "link", "--json", json]))).toBe(0);
+  const [c] = (await Bun.file(json).json()).comparisons;
+  expect(c.outcome).toBe("fail");
+  expect(c.dev.image.file).toBe(join(dir, "r-images", "0001-dev.png"));
+  expect(existsSync(c.dev.image.file)).toBe(true);
+});

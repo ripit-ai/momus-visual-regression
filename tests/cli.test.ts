@@ -74,6 +74,13 @@ test("parses --commit, --branch and --pr into CI metadata", () => {
   expect(parseCliArgs(["run"]).ci).toBeUndefined();
 });
 
+test("parses --json on run and report; snapshot rejects it", () => {
+  expect(parseCliArgs(["run", "--json", "results.json"]).jsonPath).toBe("results.json");
+  expect(parseCliArgs(["report", "--json", "r.json"]).jsonPath).toBe("r.json");
+  expect(parseCliArgs(["run"]).jsonPath).toBeUndefined();
+  expect(() => parseCliArgs(["snapshot", "--json", "x.json"])).toThrow("unknown flag for snapshot: --json (it is a flag of run, report)");
+});
+
 test("snapshot --snapshot is an error, not a silent no-op", () => {
   expect(() => parseCliArgs(["snapshot", "--snapshot"])).toThrow("unknown flag for snapshot: --snapshot (it is a flag of run)");
   expect(parseCliArgs(["run", "--snapshot"]).forceSnapshot).toBe(true);

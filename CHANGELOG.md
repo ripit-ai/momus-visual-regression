@@ -8,6 +8,14 @@ lists a `Deprecated` section, even when it is empty.
 
 ## [Unreleased]
 
+### Added
+
+- **`--json FILE`** on `run` and `report` writes a versioned, machine-readable
+  results document (verdict, counts, provenance, and per comparison: outcome,
+  score, gate, regions, image hashes and paths). Its JSON Schema is
+  [docs/results.schema.json](docs/results.schema.json)
+  ([ADR-0043](docs/adr/0043-json-results-document.md)).
+
 ### Changed
 
 - Zod 4 validates the config. Messages for out-of-range or wrongly typed values
