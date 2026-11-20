@@ -9,6 +9,8 @@ export interface UploadOptions {
   sleep?: (ms: number) => Promise<void>;
   concurrency?: number;
   retries?: number;
+  /** Per-request limit; default 30000. */
+  timeoutMs?: number;
 }
 
 /** Strip trailing slashes from the base so a path prefix (a server mounted
@@ -36,6 +38,7 @@ export async function uploadResults(
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const concurrency = opts.concurrency ?? 4;
   const retries = opts.retries ?? 3;
+  const timeoutMs = opts.timeoutMs ?? 30000;
 
   /** Retries only network errors and 5xx: a 4xx means the request itself is
    * wrong, and repeating it cannot help. Returns the response for any status
@@ -45,10 +48,16 @@ export async function uploadResults(
     for (let attempt = 0; attempt <= retries; attempt++) {
       if (attempt > 0) await sleep(250 * 2 ** (attempt - 1));
       let res: Response;
+      // Without a deadline a blackholed connection (SYN never answered) hangs
+      // for minutes per request, and CI must not stall on an unreachable
+      // server. A timeout is just a network error: retried, then reported.
+      const signal = AbortSignal.timeout(timeoutMs);
       try {
-        res = await doFetch(apiUrl(target.url, path), { ...init, method });
+        res = await doFetch(apiUrl(target.url, path), { ...init, method, signal });
       } catch (e) {
-        lastErr = `network error: ${e instanceof Error ? e.message : String(e)}`;
+        lastErr = signal.aborted
+          ? `timed out after ${timeoutMs} ms`
+          : `network error: ${e instanceof Error ? e.message : String(e)}`;
         continue;
       }
       if (res.ok || accept.includes(res.status)) return res;

@@ -101,7 +101,8 @@ exits 2 without saving a baseline.
 | `--project SLUG` | Override `server.project`. Needs `--upload`. |
 
 An upload failure prints a warning and leaves the exit code alone. `--upload`
-with no server configured exits 2 before any capture.
+with no server configured exits 2 before any capture. Each upload request
+times out after 30 s and is retried up to 3 times.
 
 On completion `momus run` prints, for example:
 
@@ -143,7 +144,8 @@ config must validate and name a `server` (or pass both flags).
 | `--server URL` | Override `server.url`. |
 | `--project SLUG` | Override `server.project`. |
 
-Exits `0` on success and `2` on any failure. On success it prints the run page URL.
+Exits `0` on success and `2` on any failure. On success it prints the run page URL. Each request times out after 30 s and
+is retried up to 3 times.
 
 ## JSON results
 

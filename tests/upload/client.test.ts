@@ -141,4 +141,28 @@ describe("uploadResults", () => {
     expect(peak).toBe(4);
     expect(r.sent).toBe(10);
   });
+
+  test("a request that never answers times out, is retried, then throws", async () => {
+    let calls = 0;
+    const f = ((_url: string, init: RequestInit) => {
+      calls++;
+      return new Promise<Response>((_, reject) => {
+        init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "TimeoutError")));
+      });
+    }) as unknown as typeof fetch;
+    const err = await uploadResults(target, doc([]), new Map(), { fetch: f, sleep, timeoutMs: 20, retries: 3 }).catch((e) => e);
+    expect(err).toBeInstanceOf(UploadError);
+    expect(err.message).toContain("timed out after 20 ms");
+    expect(calls).toBe(4);
+  });
+
+  test("every request, PUTs included, carries an abort signal", async () => {
+    const a = hash("a");
+    const signals: unknown[] = [];
+    const { f } = fake(happy([a]));
+    const wrapped = ((u: string, init: RequestInit) => { signals.push(init.signal); return f(u, init); }) as unknown as typeof fetch;
+    await uploadResults(target, doc([a]), new Map([[a, new Uint8Array([1])]]), { fetch: wrapped, sleep });
+    expect(signals).toHaveLength(3);
+    for (const s of signals) expect(s).toBeInstanceOf(AbortSignal);
+  });
 });
