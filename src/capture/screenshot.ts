@@ -2,6 +2,7 @@
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { newContext, type StorageState } from "./browser";
 import { runSteps } from "./steps";
+import { routeRequests } from "./route";
 import { disableAnimationsCss, maskCss } from "./stabilize";
 import { RecipeSchema, type CaptureRecipe } from "../config/schema";
 import type { Recipe } from "../targets/target";
@@ -21,6 +22,9 @@ export interface StabilizeOptions {
   clock?: string;
   reducedMotion?: "reduce" | "no-preference";
   colorScheme?: "light" | "dark" | "no-preference";
+  /** Hosts whose requests are aborted (ADR-0044). Optional for the same
+   * reason: a baseline from before it blocked nothing. */
+  blockHosts?: string[];
   /** Capture each baseline image twice (snapshot only). Not a capture setting. */
   verify?: boolean;
 }
@@ -87,21 +91,6 @@ export async function autoScroll(page: Page, maxMs: number): Promise<void> {
   }, maxMs);
 }
 
-/** Scope auth headers (e.g. CF-Access tokens) to same-origin requests only.
- * Sending them cross-origin triggers CORS preflights on font CDNs that don't
- * expect custom headers, silently blocking web font downloads. */
-export async function scopeRequestHeaders(page: Page, url: string, headers?: Record<string, string>): Promise<void> {
-  if (!headers || Object.keys(headers).length === 0) return;
-  const pageOrigin = new URL(url).origin;
-  await page.route("**/*", (route, request) => {
-    if (new URL(request.url()).origin === pageOrigin) {
-      route.continue({ headers: { ...request.headers(), ...headers } });
-    } else {
-      route.continue();
-    }
-  });
-}
-
 /** Wait until every `<img>` has loaded (or failed) and decoded, bounded by
  * `maxMs`. Needed after autoScroll: an image it triggered starts loading after
  * the page already reached networkidle, and Playwright's load states are
@@ -163,10 +152,11 @@ export async function capture(
   // { ok:false } rather than throwing (upholds "one bad page can't abort a run").
   let context: BrowserContext | undefined;
   try {
+    const blockHosts = opts.blockHosts ?? [];
     context = await newContext(browser, viewportWidth, insecure, extras.storageState,
-      { reducedMotion: opts.reducedMotion, colorScheme: opts.colorScheme });
+      { reducedMotion: opts.reducedMotion, colorScheme: opts.colorScheme }, blockHosts.length > 0);
     const page = await context.newPage();
-    await scopeRequestHeaders(page, url, requestHeaders);
+    await routeRequests(page, url, { headers: requestHeaders, blockHosts });
     // Before navigation, so the page's first script already sees the pinned
     // date. setFixedTime leaves timers running: settle waits still elapse.
     if (opts.clock !== undefined) await page.clock.setFixedTime(new Date(opts.clock));

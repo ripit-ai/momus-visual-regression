@@ -2,7 +2,7 @@
 import type { Browser, BrowserContext } from "playwright-core";
 import type { ResolvedConfig } from "../config/schema";
 import { newContext, type StorageState } from "./browser";
-import { scopeRequestHeaders } from "./screenshot";
+import { routeRequests } from "./route";
 import { runSteps } from "./steps";
 
 export type Side = "dev" | "prod";
@@ -61,9 +61,12 @@ export async function runSetup(
 
   let context: BrowserContext | undefined;
   try {
-    context = await newContext(browser, setupViewport(config), config.insecure);
+    // Hosts blocked here too: prod's setup shapes the session the baseline
+    // was captured with, so a blocked script must not run during it either.
+    const blockHosts = config.stabilize.blockHosts;
+    context = await newContext(browser, setupViewport(config), config.insecure, undefined, {}, blockHosts.length > 0);
     const page = await context.newPage();
-    await scopeRequestHeaders(page, config[side], config.requestHeaders);
+    await routeRequests(page, config[side], { headers: config.requestHeaders, blockHosts });
     await runSteps(page, setup.steps!, { timeoutMs: config.stabilize.timeoutMs, baseUrl: config[side] });
     return await context.storageState();
   } catch (err) {

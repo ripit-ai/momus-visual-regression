@@ -65,8 +65,13 @@ export interface MediaEmulation {
 export async function newContext(
   browser: Browser, viewportWidth: number, ignoreHTTPSErrors = false, storageState?: StorageState,
   media: MediaEmulation = {},
+  blockServiceWorkers = false,
 ): Promise<BrowserContext> {
   return browser.newContext({
+    // Request interception doesn't see a service worker's own fetches, so a
+    // worker could reach a blocked host. Only when hosts are blocked: for
+    // everyone else, a worker stays part of what the page renders (ADR-0044).
+    ...(blockServiceWorkers && { serviceWorkers: "block" as const }),
     viewport: { width: viewportWidth, height: 900 },
     deviceScaleFactor: 1,
     ignoreHTTPSErrors,

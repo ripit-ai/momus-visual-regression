@@ -30,6 +30,7 @@ export function configScaffold(): string {
     disableAnimations: true,
     mask: [".carousel", ".ad-slot", "[data-timestamp]"],
     // remove: [".cookie-banner"],   // delete elements from the DOM before capture (space collapses)
+    // blockHosts: ["*.hotjar.com"],  // abort requests to these hosts (analytics, A/B tests)
     // clock: "2026-01-01T00:00:00Z", // pin Date so relative times ("3 minutes ago") render the same
     // verify: true,                  // capture each baseline image twice; mark ones that move unstable
   },

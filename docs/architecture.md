@@ -153,6 +153,7 @@ src/
 │   ├── browser.ts      # engine map, launch (pinned flags), newContext (media), renderingMode
 │   ├── stabilize.ts    # wait, disable animations, mask/remove selectors
 │   ├── steps.ts        # runSteps: the step vocabulary → Playwright calls; StepError
+│   ├── route.ts        # routeRequests: block hosts, scope auth headers; hostBlocked (pure)
 │   ├── setup.ts        # runSetup: log in once per side → in-memory session; SetupError
 │   └── screenshot.ts   # capture(url, viewport, opts, extras) → PNG buffer (page or element)
 ├── pipeline/
@@ -233,7 +234,7 @@ built-in defaults**.
 | `requestHeaders` | Sent on discovery fetches and page loads (e.g. CF Access headers). |
 | `discovery` | `urlList`, `sitemap`, `maxPages` (0 = unlimited), `crawl` (bool or object, off by default), `include`/`exclude` globs. |
 | `viewports` | Widths; full-page height each. Gated against the baseline. |
-| `stabilize` | `waitUntil`, `settleMs`, `timeoutMs`, `disableAnimations`, `mask`, `remove`, `waitForImages`, `clock`, `reducedMotion`, `colorScheme`. Gated against the baseline. `verify` too, but it isn't gated: it changes no pixels. |
+| `stabilize` | `waitUntil`, `settleMs`, `timeoutMs`, `disableAnimations`, `mask`, `remove`, `blockHosts`, `waitForImages`, `clock`, `reducedMotion`, `colorScheme`. Gated against the baseline. `verify` too, but it isn't gated: it changes no pixels. |
 | `retries` | Dev re-captures for a target that fails the gate (0–10, default 0). Not gated. |
 | `diff` | `threshold` (per-pixel sensitivity) and `failScore` (page-level gate) — two different knobs, see [ADR-0004](adr/0004-two-threshold-knobs.md). Plus per-path `overrides`, and `includeAA` (default false: anti-aliasing detection on). |
 | `concurrency` | `screenshots` (the `--concurrency` flag maps here) and `diffWorkers` (config only). |

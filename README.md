@@ -90,6 +90,7 @@ export default defineConfig({
   stabilize: {
     mask: [".carousel", "[data-timestamp]"],  // hide regions that change on every load
     remove: [".cookie-banner"],               // delete overlays entirely
+    blockHosts: ["*.hotjar.com"],             // keep third-party scripts from loading
   },
 
   diff: {
@@ -104,7 +105,7 @@ every setting, and each one's default.
 
 - [Sites](docs/config.md#sites): URLs, browser engine, request headers
 - [Discovery](docs/config.md#discovery): sitemap, crawl, URL list, include/exclude
-- [Viewports](docs/config.md#viewports) and [Stabilize](docs/config.md#stabilize): widths, waits, masking dynamic regions
+- [Viewports](docs/config.md#viewports) and [Stabilize](docs/config.md#stabilize): widths, waits, masking dynamic regions, blocking third-party hosts
 - [Diff](docs/config.md#diff): the pass/fail threshold and per-path overrides
 - [Output](docs/config.md#output): report and database paths, run history
 - [Scenarios](docs/config.md#scenarios) and [Setup](docs/config.md#setup): pages in a particular state, logging in

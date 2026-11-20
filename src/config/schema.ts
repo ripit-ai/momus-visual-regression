@@ -107,6 +107,11 @@ const SetupSchema = z.object({
   return { dev: side, prod: side };
 });
 
+/** A host name, or `*.` and a domain for its subdomains. No wildcard anywhere
+ * else: a glob like `ads*` could match the site under test without anyone
+ * noticing until every capture errored. */
+const BLOCK_HOST = /^(\*\.)?[a-z0-9_-]+(\.[a-z0-9_-]+)*$/;
+
 // Sections use .prefault({}), not .default({}): Zod 4 returns a default as-is,
 // so a missing section would come back as {} without its fields' defaults.
 export const ConfigSchema = z.object({
@@ -141,6 +146,12 @@ export const ConfigSchema = z.object({
     disableAnimations: z.boolean().default(true),
     mask: z.array(z.string()).default([]),
     remove: z.array(z.string()).default([]),
+    // Requests to these hosts are aborted during capture (ADR-0044). Lower-cased
+    // so "CDN.example.com" and "cdn.example.com" are one entry in the gate.
+    blockHosts: z.array(z.string().trim().toLowerCase().regex(BLOCK_HOST, {
+      message: 'stabilize.blockHosts entries are host names like "cdn.example.com" or "*.example.com", ' +
+        "with no scheme, port or path",
+    })).default([]),
     // RFC-0006. Each changes pixels, so each is gated (ADR-0032).
     waitForImages: z.boolean().default(true),
     clock: z.string().refine((s) => !Number.isNaN(Date.parse(s)), {

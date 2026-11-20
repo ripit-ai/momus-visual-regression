@@ -89,6 +89,12 @@ export function baselineConflict(
   if (cr.length !== sr.length || cr.some((m, i) => m !== sr[i])) {
     return `stabilize.remove differs: config ${JSON.stringify(cr)} vs baseline ${JSON.stringify(sr)}`;
   }
+  // A set, not a list: unlike selectors, the order hosts are listed in can't
+  // change a pixel. A baseline from before blockHosts blocked nothing (ADR-0044).
+  const cb = [...(cs.blockHosts ?? [])].sort(), sb = [...(ss.blockHosts ?? [])].sort();
+  if (cb.length !== sb.length || cb.some((h, i) => h !== sb[i])) {
+    return `stabilize.blockHosts differs: config ${JSON.stringify(cb)} vs baseline ${JSON.stringify(sb)}`;
+  }
 
   for (const [key, before] of RFC_0006_STABILIZE) {
     const live = cs[key] ?? null;
