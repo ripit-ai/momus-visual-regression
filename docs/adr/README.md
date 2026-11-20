@@ -59,6 +59,8 @@ For how the system fits together today, see [architecture.md](../architecture.md
 | [0045](0045-request-headers-are-redacted.md) | `requestHeaders` values are never stored, and v7 removes the ones that were | 2026-11-21 |
 | [0046](0046-unloaded-images-are-a-warning.md) | Images that didn't load are a warning on the capture; `retries` re-captures the baseline for them | 2026-11-21 |
 | [0047](0047-version-stamped-from-tag.md) | The release tag is the version; the workflow stamps it into `package.json` | 2026-11-26 |
+| [0048](0048-staged-content-addressed-upload.md) | Runs upload in stages, with images addressed by hash | 2026-11-19 |
+| [0049](0049-upload-never-changes-the-run-exit-code.md) | An upload never changes the run's exit code | 2026-11-19 |
 
 ## Open questions
 

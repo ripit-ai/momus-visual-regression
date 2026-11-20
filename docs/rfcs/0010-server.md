@@ -6,6 +6,12 @@
 > decisions that would make 2.0 painful. Rewrite it once 1.0 has shipped and
 > real teams have used it.
 
+> **MVP:** a first slice is built: ingest, image storage and read-only review.
+> The CLI side is `momus upload` and `momus run --upload`; see
+> [ADR-0048](../adr/0048-staged-content-addressed-upload.md) and
+> [ADR-0049](../adr/0049-upload-never-changes-the-run-exit-code.md). Baselines,
+> approval, history views and PR status checks remain proposals below.
+
 ## Summary
 
 A self-hostable service that the momus CLI uploads runs to. It keeps history

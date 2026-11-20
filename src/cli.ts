@@ -177,6 +177,10 @@ async function main(): Promise<void> {
         const { reportCommand } = await import("./commands/report");
         process.exit(await reportCommand(parsed));
       }
+      case "upload": {
+        const { uploadCommand } = await import("./commands/upload");
+        process.exit(await uploadCommand(parsed));
+      }
       default:
         console.log(usage());
         process.exit(0);

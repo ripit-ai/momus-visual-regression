@@ -15,6 +15,7 @@ import { hasUnloadedImages, unloadedBaselineWarning } from "../report/summary";
 import type { ResolvedConfig } from "../config/schema";
 import type { ComparisonRecord } from "../types";
 import { scenariosSource } from "../targets/scenarios";
+import { pushRun, uploadAfterRun } from "../upload/push";
 import { makeProgress } from "../progress";
 
 export async function runCommand(parsed: ParsedCli): Promise<number> {
@@ -25,6 +26,12 @@ export async function runCommand(parsed: ParsedCli): Promise<number> {
     const raw = await loadConfigFile(configPath);
     config = resolveConfig(raw, parsed.overrides);
     rendering = renderingMode();
+    // Before the browser check: a missing server is a config problem, and
+    // finding out after a full capture would waste the run.
+    if (parsed.upload && !config.server) {
+      console.error("Config error: --upload needs a server: set server.url and server.project, or pass --server and --project");
+      return 2;
+    }
   } catch (err) {
     console.error(`Config error: ${err instanceof Error ? err.message : err}`);
     return 2;
@@ -120,6 +127,11 @@ async function runWithDb(parsed: ParsedCli, config: ResolvedConfig, db: Database
   }
   console.log(resultLine(parsed.jsonPath ? `${config.output.report} and ${parsed.jsonPath}` : config.output.report,
     result.runId, rows, code));
+  if (parsed.upload && config.server) {
+    const target = config.server;
+    // Always returns `code`: an upload failure never changes the exit code.
+    return uploadAfterRun(code, () => pushRun(readRun(db, result.runId)!, rows, target));
+  }
   return code;
 }
 

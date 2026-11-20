@@ -25,6 +25,12 @@ lists a `Deprecated` section, even when it is empty.
   `summary.unloaded`. It is a warning: statuses, scores and exit codes are
   unchanged ([ADR-0046](docs/adr/0046-unloaded-images-are-a-warning.md)).
 
+- `momus upload` sends a stored run to a momus server, and `momus run --upload`
+  sends the run it just finished. Configure the target with a `server` block or
+  `--server` and `--project`. An upload failure during `run` warns and leaves
+  the exit code unchanged ([ADR-0048](docs/adr/0048-staged-content-addressed-upload.md),
+  [ADR-0049](docs/adr/0049-upload-never-changes-the-run-exit-code.md)).
+
 ### Changed
 
 - **`retries` also applies to the baseline.** While a baseline image has images
