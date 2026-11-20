@@ -1,6 +1,6 @@
 // tests/report/summary.test.ts
 import { test, expect } from "bun:test";
-import { summarize, itemClass, unloadedNotes, unloadedBaselineWarning } from "../../src/report/summary";
+import { summarize, itemClass, unloadedNotes, unloadedBaselineWarning, worstFirst } from "../../src/report/summary";
 import type { ComparisonRecord } from "../../src/types";
 
 function ok(path: string, vp: number, score: number, passed: boolean): ComparisonRecord {
@@ -125,4 +125,10 @@ test("a baseline frozen with unloaded images is warned about", () => {
   const spent = unloadedBaselineWarning([{ unloadedImages: [{}] }, { unloadedImages: [{}, {}] }], 2)!;
   expect(spent).toContain("2 baseline captures have images that did not load, after 2 retries.");
   expect(spent).not.toContain("set `retries`");
+});
+
+test("worstFirst is stable for equal ranks", () => {
+  const added = (path: string): ComparisonRecord => ({ path, viewport: 1280, devUrl: "d", prodUrl: "p", status: "added" });
+  const sorted = worstFirst([added("/b"), ok("/z", 1280, 0.5, false), added("/a")]);
+  expect(sorted.map((r) => r.path)).toEqual(["/b", "/a", "/z"]);
 });

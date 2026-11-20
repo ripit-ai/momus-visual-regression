@@ -5,7 +5,7 @@ import type { RunRow } from "../store/db";
 import type { ComparisonRecord, UnloadedImage } from "../types";
 import { failsGate } from "../pipeline/verdict";
 import { MOMUS_VERSION } from "../version";
-import { itemClass, summarize } from "./summary";
+import { itemClass, summarize, worstFirst } from "./summary";
 
 /** The `--json` results document (RFC-0008). Part of the 1.x contract
  * (RFC-0009): within a major version fields are only added, and
@@ -116,9 +116,13 @@ function unloaded(images: UnloadedImage[] | undefined): z.infer<typeof UnloadedI
 
 export type ImageFile = (r: ComparisonRecord, side: "dev" | "prod" | "diff") => string | undefined;
 
+export function sha256Hex(b: Uint8Array): string {
+  return createHash("sha256").update(b).digest("hex");
+}
+
 function image(b: Uint8Array | undefined, file: string | undefined): z.infer<typeof ImageSchema> {
   if (!b) return null;
-  return { sha256: createHash("sha256").update(b).digest("hex"), bytes: b.length, file: file ?? null };
+  return { sha256: sha256Hex(b), bytes: b.length, file: file ?? null };
 }
 
 /** One stored run as the results document. Pure: the gate is the one recorded
@@ -145,7 +149,7 @@ export function buildResults(run: RunRow, rows: ComparisonRecord[], imageFile: I
       ci: { commit: run.ci.commit ?? null, branch: run.ci.branch ?? null, pr: run.ci.pr ?? null },
     },
     baseline: baseline && { ...baseline, engineVersion: baseline.engineVersion ?? null },
-    comparisons: rows.map((r) => ({
+    comparisons: worstFirst(rows).map((r) => ({
       targetId: r.targetId ?? r.path,
       source: r.source ?? "pages",
       label: r.label ?? r.path,

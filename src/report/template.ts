@@ -1,6 +1,6 @@
 // src/report/template.ts
 import type { ComparisonRecord, Region } from "../types";
-import { summarize, itemClass, dimensionNote, unloadedNotes } from "./summary";
+import { summarize, itemClass, dimensionNote, unloadedNotes, worstFirst, rank } from "./summary";
 import { STRICT_GATE, type GateOptions } from "../pipeline/verdict";
 import { embedImages, type ImageRef, type ImageSide, type ImageSource } from "./images";
 import { STYLES } from "./styles";
@@ -140,14 +140,6 @@ function item(r: ComparisonRecord, images: ImageSource): string {
 </details>`;
 }
 
-/** Worst-first ordering: errors, then added/removed/unstable (unreviewed
- * changes, above any diff score, which is at most 1), then highest diffScore. */
-function rank(r: ComparisonRecord): number {
-  if (r.status === "error") return Infinity;
-  if (r.status === "added" || r.status === "removed" || r.status === "unstable") return 2;
-  return r.diffScore ?? 0;
-}
-
 /** Triage order: what most needs a look first. */
 const STATUSES = [["fail", "Failed"], ["error", "Errored"], ["added", "Added"], ["removed", "Removed"],
   ["unstable", "Unstable"], ["pass", "Passed"]] as const;
@@ -189,7 +181,7 @@ export function renderReport(
   opts: { images?: ImageSource } = {},
 ): string {
   const images = opts.images ?? embedImages;
-  const sorted = [...records].sort((a, b) => rank(b) - rank(a));
+  const sorted = worstFirst(records);
   const s = summarize(records, gate);
   // A run that never completed (failed before comparing, or killed) has rows
   // that are missing or partial; "all passed" would be a lie. No status means

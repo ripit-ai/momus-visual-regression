@@ -116,12 +116,30 @@ test("each side lists the images it was captured without (ADR-0046)", () => {
   const doc = buildResults(run(), [holed, errored]);
   expect(ResultsSchema.safeParse(doc).success).toBe(true);
   expect(doc.summary.unloaded).toBe(1);
-  expect(doc.comparisons[0]!.dev.unloadedImages).toEqual([]);
-  expect(doc.comparisons[0]!.prod.unloadedImages).toEqual([
+  // Worst first puts the error row ahead, so find each row by outcome.
+  const failed = doc.comparisons.find((c) => c.outcome === "fail")!;
+  const error = doc.comparisons.find((c) => c.outcome === "error")!;
+  expect(failed.dev.unloadedImages).toEqual([]);
+  expect(failed.prod.unloadedImages).toEqual([
     { url: "https://img.example.com/hero.jpg", state: "failed", detail: "HTTP 504" },
     { url: "https://img.example.com/late.jpg", state: "pending", detail: null },
   ]);
   // A warning: the outcome and the gate are what they were without it.
-  expect(doc.comparisons[0]!.outcome).toBe("fail");
-  expect(doc.comparisons[1]!.prod.unloadedImages).toEqual([]);
+  expect(doc.comparisons.map((c) => c.outcome)).toEqual(["error", "fail"]);
+  expect(error.prod.unloadedImages).toEqual([]);
+});
+
+test("comparisons are worst first: error, then added/removed/unstable, then by diffScore", () => {
+  const row = (path: string, over: Partial<ComparisonRecord>): ComparisonRecord => ({
+    path, viewport: 1280, devUrl: "d", prodUrl: "p", status: "ok", ...over,
+  });
+  const rows = [
+    row("/half", { diffScore: 0.5, passed: false }),
+    row("/zero", { diffScore: 0, passed: true }),
+    row("/err", { status: "error", error: "boom" }),
+    row("/new", { status: "added" }),
+    row("/flaky", { status: "unstable", diffScore: 0.9 }),
+  ];
+  expect(buildResults(run(), rows).comparisons.map((c) => c.outcome))
+    .toEqual(["error", "added", "unstable", "fail", "pass"]);
 });

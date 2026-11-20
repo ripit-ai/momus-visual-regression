@@ -35,6 +35,11 @@ lists a `Deprecated` section, even when it is empty.
 - **DB schema v8.** Opening an older `.sqlite` upgrades it in place; momus 1.1.0
   and earlier can't open it afterwards.
 
+### Fixed
+
+- `--json` comparisons are now worst first, as documented. v1.1.0 wrote them by
+  diff score with error, added and removed rows last.
+
 ### Security
 
 - **`requestHeaders` values are no longer written to the `.sqlite`.** They were

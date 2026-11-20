@@ -29,6 +29,19 @@ export function itemClass(r: ComparisonRecord): "pass" | "fail" | "error" | "add
   return r.passed ? "pass" : "fail";
 }
 
+/** Worst-first ordering: errors, then added/removed/unstable (unreviewed
+ * changes, above any diff score, which is at most 1), then highest diffScore. */
+export function rank(r: ComparisonRecord): number {
+  if (r.status === "error") return Infinity;
+  if (r.status === "added" || r.status === "removed" || r.status === "unstable") return 2;
+  return r.diffScore ?? 0;
+}
+
+/** A new array, worst first. Array.prototype.sort is stable, so ties keep input order. */
+export function worstFirst<T extends ComparisonRecord>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => rank(b) - rank(a));
+}
+
 export function summarize(records: ComparisonRecord[], gate: GateOptions = STRICT_GATE): ReportSummary {
   let passed = 0, failed = 0, errored = 0, added = 0, removed = 0, unstable = 0, unloaded = 0;
   let worst: ReportSummary["worst"];
