@@ -356,6 +356,7 @@ full captures.
 | `server.url` | none | Base `http(s)` URL of the momus server. `--server`. |
 | `server.project` | none | Project slug on the server: lowercase letters, digits and dashes, starting with a letter or digit, at most 63 characters. `--project`. |
 
+## Scenarios
 
 Pages render one state on load. A **scenario** puts a page in another state
 (menu open, form with errors) and screenshots it, on dev and prod alike:
