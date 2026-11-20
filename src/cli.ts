@@ -4,7 +4,7 @@ import type { CliOverrides } from "./config/load";
 import type { CiMetadata } from "./store/db";
 
 export interface ParsedCli {
-  command: "run" | "snapshot" | "report" | "init" | "install-browser" | "help";
+  command: "run" | "snapshot" | "report" | "upload" | "init" | "install-browser" | "help";
   overrides: CliOverrides;
   configPath?: string;
   /** `run --snapshot`: re-capture the prod baseline before diffing. Named
@@ -18,6 +18,8 @@ export interface ParsedCli {
   /** `--json FILE`: also write the results document (RFC-0008). A flag only,
    * like `--commit`: where CI wants it is the job's business, not the site's. */
   jsonPath?: string;
+  /** `run --upload`: push the finished run to the server. */
+  upload?: boolean;
 }
 
 type Command = Exclude<ParsedCli["command"], "help">;
@@ -42,6 +44,9 @@ const FLAGS = {
   branch: { type: "string", arg: "NAME" },
   pr: { type: "string", arg: "N" },
   json: { type: "string", arg: "FILE" },
+  server: { type: "string", arg: "URL" },
+  project: { type: "string", arg: "SLUG" },
+  upload: { type: "boolean" },
 } as const satisfies Record<string, { type: "string" | "boolean"; arg?: string }>;
 type Flag = keyof typeof FLAGS;
 
@@ -49,9 +54,11 @@ type Flag = keyof typeof FLAGS;
  * be silently ignored by a command that doesn't read it (RFC-0009, ADR-0039). */
 export const COMMAND_FLAGS: Record<Command, readonly Flag[]> = {
   run: ["dev", "prod", "out", "config", "concurrency", "max-pages", "crawl", "insecure", "browser", "snapshot",
-    "allow-added", "allow-removed", "report-images", "commit", "branch", "pr", "json"],
+    "allow-added", "allow-removed", "report-images", "commit", "branch", "pr", "json",
+    "upload", "server", "project"],
   snapshot: ["prod", "config", "concurrency", "max-pages", "crawl", "insecure", "browser"],
   report: ["run", "out", "report-images", "config", "json"],
+  upload: ["run", "config", "server", "project"],
   init: [],
   "install-browser": [],
 };
@@ -61,7 +68,7 @@ export function usage(): string {
     const d = FLAGS[f] as { arg?: string };
     return ` [--${f}${d.arg ? ` ${d.arg}` : ""}]`;
   }).join("");
-  const order: Command[] = ["init", "install-browser", "snapshot", "report", "run"];
+  const order: Command[] = ["init", "install-browser", "snapshot", "report", "upload", "run"];
   return `momus — visual regression diff\n\nUsage:\n${order.map(line).join("\n")}`;
 }
 
@@ -114,6 +121,14 @@ export function parseCliArgs(argv: string[]): ParsedCli {
   if (values["allow-added"]) overrides.allowAdded = true;
   if (values["allow-removed"]) overrides.allowRemoved = true;
   if (values["report-images"]) overrides.reportImages = values["report-images"] as string;
+  if (values.server) overrides.server = values.server as string;
+  if (values.project) overrides.project = values.project as string;
+  // On `run` these only mean something with --upload; `upload` always uploads.
+  if (command === "run" && !values.upload) {
+    for (const f of ["server", "project"] as const) {
+      if (values[f] !== undefined) throw new Error(`--${f} needs --upload`);
+    }
+  }
 
   let runId: number | undefined;
   if (values.run !== undefined) {
@@ -131,6 +146,7 @@ export function parseCliArgs(argv: string[]): ParsedCli {
     forceSnapshot: values.snapshot as boolean | undefined, runId,
     ci: Object.keys(ci).length ? ci : undefined,
     jsonPath: values.json as string | undefined,
+    upload: values.upload as boolean | undefined,
   };
 }
 

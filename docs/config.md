@@ -348,7 +348,14 @@ originals, which the 1:1 view loads. With `link` or `thumbnails`, keep the
 directory with the report. Previews are for display only; diffs always use the
 full captures.
 
-## Scenarios
+## Server
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `server` | unset | Where `momus upload` and `run --upload` send a run. Optional; both keys are required once the block exists. |
+| `server.url` | none | Base `http(s)` URL of the momus server. `--server`. |
+| `server.project` | none | Project slug on the server: lowercase letters, digits and dashes, starting with a letter or digit, at most 63 characters. `--project`. |
+
 
 Pages render one state on load. A **scenario** puts a page in another state
 (menu open, form with errors) and screenshots it, on dev and prod alike:

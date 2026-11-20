@@ -96,6 +96,12 @@ exits 2 without saving a baseline.
 | `--branch NAME` | Record the branch this run tested. |
 | `--pr N` | Record the pull request this run tested. |
 | `--json FILE` | Also write the results document to `FILE` ([JSON results](#json-results)). |
+| `--upload` | After the run, upload it to the server (`server` in [config.md](config.md#server)). |
+| `--server URL` | Override `server.url`. Needs `--upload`. |
+| `--project SLUG` | Override `server.project`. Needs `--upload`. |
+
+An upload failure prints a warning and leaves the exit code alone. `--upload`
+with no server configured exits 2 before any capture.
 
 On completion `momus run` prints, for example:
 
@@ -124,6 +130,20 @@ prod URLs included.
 
 Exits `0` on success and `2` if there is no DB file, no runs, or no run with that
 id (the message lists the ids available).
+
+## `momus upload`
+
+Uploads a stored run from `output.db` to the server. It needs no browser. The
+config must validate and name a `server` (or pass both flags).
+
+| Flag | Description |
+| --- | --- |
+| `--run ID` | Upload this run instead of the latest. |
+| `--config FILE` | Path to the config file (default `./momus.config.ts`). |
+| `--server URL` | Override `server.url`. |
+| `--project SLUG` | Override `server.project`. |
+
+Exits `0` on success and `2` on any failure. On success it prints the run page URL.
 
 ## JSON results
 

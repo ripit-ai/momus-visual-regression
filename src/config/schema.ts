@@ -112,12 +112,21 @@ const SetupSchema = z.object({
  * noticing until every capture errored. */
 const BLOCK_HOST = /^(\*\.)?[a-z0-9_-]+(\.[a-z0-9_-]+)*$/;
 
+/** Project slug, shared with the server's route validation. */
+export const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
+
 // Sections use .prefault({}), not .default({}): Zod 4 returns a default as-is,
 // so a missing section would come back as {} without its fields' defaults.
 export const ConfigSchema = z.object({
   dev: z.string().url(),
   prod: z.string().url(),
   insecure: z.boolean().default(false),
+  // No defaults: an upload target is explicit, and both keys are required once
+  // the block exists, so a missing project is named rather than guessed.
+  server: z.object({
+    url: z.url({ protocol: /^https?$/ }),
+    project: z.string().regex(SLUG_RE, "lowercase letters, digits and dashes"),
+  }).strict().optional(),
   requestHeaders: z.record(z.string(), z.string()).default({}),
   browser: z.enum(["chromium", "firefox", "webkit"]).default("chromium"),
   discovery: z.object({

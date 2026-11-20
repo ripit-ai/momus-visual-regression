@@ -275,3 +275,19 @@ test("retries is an integer from 0 to 10", () => {
 test("output.reportImages defaults to embed", () => {
   expect(ConfigSchema.parse({ dev: "https://d.com", prod: "https://p.com" }).output.reportImages).toBe("embed");
 });
+
+test("server block is optional", () => {
+  const c = ConfigSchema.parse({ dev: "https://d.test", prod: "https://p.test" });
+  expect(c.server).toBeUndefined();
+});
+
+test("server requires an http(s) url and a slug project", () => {
+  const base = { dev: "https://d.test", prod: "https://p.test" };
+  const ok = { url: "https://s.test", project: "acme-1" };
+  expect(ConfigSchema.parse({ ...base, server: ok }).server).toEqual(ok);
+  expect(() => ConfigSchema.parse({ ...base, server: { ...ok, url: "ftp://x" } })).toThrow();
+  expect(() => ConfigSchema.parse({ ...base, server: { ...ok, project: "Acme" } })).toThrow();
+  const r = ConfigSchema.safeParse({ ...base, server: { ...ok, token: "t" } });
+  expect(r.success).toBe(false);
+  if (!r.success) expect(JSON.stringify(r.error.issues)).toContain("token");
+});

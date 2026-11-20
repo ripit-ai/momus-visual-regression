@@ -96,7 +96,7 @@ test("parses --report-images", () => {
 test("every command rejects a flag it doesn't take, naming the commands that do", () => {
   expect(() => parseCliArgs(["snapshot", "--dev", "https://d.com"])).toThrow("unknown flag for snapshot: --dev (it is a flag of run)");
   expect(() => parseCliArgs(["report", "--crawl"])).toThrow("unknown flag for report: --crawl (it is a flag of run, snapshot)");
-  expect(() => parseCliArgs(["init", "--config", "x.ts"])).toThrow("unknown flag for init: --config (it is a flag of run, snapshot, report)");
+  expect(() => parseCliArgs(["init", "--config", "x.ts"])).toThrow("unknown flag for init: --config (it is a flag of run, snapshot, report, upload)");
   expect(() => parseCliArgs(["install-browser", "--browser", "webkit"])).toThrow("unknown flag for install-browser: --browser");
 });
 
@@ -127,4 +127,21 @@ test("--help or -h after any command shows the usage", () => {
   expect(parseCliArgs(["run", "--help"]).command).toBe("help");
   expect(parseCliArgs(["snapshot", "-h"]).command).toBe("help");
   expect(parseCliArgs(["report", "--run", "3", "--help"]).command).toBe("help");
+});
+
+test("parses the upload command and its server flags", () => {
+  const p = parseCliArgs(["upload", "--run", "3", "--server", "https://s.test", "--project", "p"]);
+  expect(p.command).toBe("upload");
+  expect(p.runId).toBe(3);
+  expect(p.overrides.server).toBe("https://s.test");
+  expect(p.overrides.project).toBe("p");
+});
+
+test("run --upload sets upload; --server/--project need it on run", () => {
+  expect(parseCliArgs(["run", "--upload"]).upload).toBe(true);
+  expect(parseCliArgs(["run"]).upload).toBeUndefined();
+  expect(parseCliArgs(["run", "--upload", "--server", "https://s.test", "--project", "p"]).overrides.server).toBe("https://s.test");
+  expect(() => parseCliArgs(["run", "--server", "https://s.test"])).toThrow("--server needs --upload");
+  expect(() => parseCliArgs(["run", "--project", "p"])).toThrow("--project needs --upload");
+  expect(() => parseCliArgs(["report", "--upload"])).toThrow("unknown flag for report: --upload (it is a flag of run)");
 });

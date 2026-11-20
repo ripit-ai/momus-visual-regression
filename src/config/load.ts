@@ -17,6 +17,8 @@ export interface CliOverrides {
   allowAdded?: boolean;
   allowRemoved?: boolean;
   reportImages?: string;
+  server?: string;
+  project?: string;
 }
 
 /** Merge file config + CLI overrides, then validate. CLI wins (spec §6). */
@@ -51,6 +53,14 @@ export function resolveConfig(fileConfig: RawConfig, cli: CliOverrides): Resolve
   }
   if (cli.allowRemoved !== undefined) {
     merged.diff = { ...(merged.diff ?? {}), allowRemoved: cli.allowRemoved };
+  }
+  if (cli.server !== undefined || cli.project !== undefined) {
+    // Partial on purpose: the schema then names whichever key is still missing.
+    merged.server = {
+      ...(merged.server ?? {}),
+      ...(cli.server !== undefined ? { url: cli.server } : {}),
+      ...(cli.project !== undefined ? { project: cli.project } : {}),
+    } as NonNullable<RawConfig["server"]>;
   }
   const parsed = ConfigSchema.safeParse(merged);
   if (!parsed.success) throw new Error(formatIssues(parsed.error.issues).join("\n"));

@@ -129,3 +129,14 @@ test("a resolved config re-parses under strict", async () => {
   }, {});
   expect(() => applyDefaults(full)).not.toThrow();
 });
+
+test("--server and --project override config server", () => {
+  const c = resolveConfig({ ...base, server: { url: "https://a.test", project: "a" } }, { server: "https://b.test" });
+  expect(c.server).toEqual({ url: "https://b.test", project: "a" });
+  const d = resolveConfig({ ...base, server: { url: "https://a.test", project: "a" } }, { project: "z" });
+  expect(d.server).toEqual({ url: "https://a.test", project: "z" });
+});
+
+test("--server with no project anywhere is a config error naming server.project", () => {
+  expect(() => resolveConfig(base, { server: "https://b.test" })).toThrow("server.project");
+});
