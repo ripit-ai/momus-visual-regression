@@ -73,6 +73,25 @@ test("a baseline snapshot missing 'remove' does not conflict with a default (emp
   expect(baselineConflict(c, snap)).toBeNull();
 });
 
+test("differing stabilize.blockHosts → conflict naming blockHosts", () => {
+  const c = cfg({ stabilize: { blockHosts: ["ads.example.com"] } });
+  const msg = baselineConflict(c, snapFrom(cfg()));
+  expect(msg).toContain("stabilize.blockHosts differs");
+});
+
+test("stabilize.blockHosts in another order is not a conflict", () => {
+  const c = cfg({ stabilize: { blockHosts: ["a.example.com", "b.example.com"] } });
+  const snap = snapFrom(cfg({ stabilize: { blockHosts: ["b.example.com", "a.example.com"] } }));
+  expect(baselineConflict(c, snap)).toBeNull();
+});
+
+test("a baseline from before blockHosts blocked nothing", () => {
+  const old = snapFrom(cfg());
+  delete (old.stabilize as { blockHosts?: string[] }).blockHosts;
+  expect(baselineConflict(cfg(), old)).toBeNull();
+  expect(baselineConflict(cfg({ stabilize: { blockHosts: ["ads.example.com"] } }), old)).toContain("stabilize.blockHosts differs");
+});
+
 test("a different prod origin → conflict naming both origins and the fix", () => {
   const msg = baselineConflict(cfg({ prod: "https://other.example.com" }), snapFrom(cfg()));
   expect(msg).toContain('prod origin differs: config "https://other.example.com" vs baseline "https://www.example.com"');

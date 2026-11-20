@@ -48,7 +48,10 @@ function fakeRoutingBrowser(handlers: Function[]) {
  * to route.continue() (undefined = continued untouched). */
 async function routeOnce(handler: Function, url: string, headers: Record<string, string>) {
   let passed: any = "not-called";
-  const route = { continue: (arg?: any) => { passed = arg; } };
+  const route = {
+    continue: (arg?: any) => { passed = arg; },
+    abort: (code?: string) => { passed = { aborted: code }; },
+  };
   const request = { url: () => url, headers: () => headers };
   await handler(route, request);
   return passed;
@@ -91,6 +94,37 @@ test("capture installs no route handler when requestHeaders is omitted", async (
   const handlers: Function[] = [];
   await capture(fakeRoutingBrowser(handlers), "https://x.example/page", 1280, STAB, false);
   expect(handlers).toHaveLength(0);
+});
+
+test("capture aborts requests to a blocked host", async () => {
+  const handlers: Function[] = [];
+  await capture(fakeRoutingBrowser(handlers), "https://x.example/page", 1280, { ...STAB, blockHosts: ["*.tracker.example"] });
+  expect(handlers).toHaveLength(1);
+  expect(await routeOnce(handlers[0]!, "https://cdn.tracker.example/t.js", {})).toEqual({ aborted: "blockedbyclient" });
+  expect(await routeOnce(handlers[0]!, "https://x.example/app.js", {})).toBeUndefined();
+});
+
+test("a blocked request is aborted before any header is added, even same-origin", async () => {
+  const handlers: Function[] = [];
+  await capture(fakeRoutingBrowser(handlers), "https://x.example/page", 1280, { ...STAB, blockHosts: ["x.example"] }, false, AUTH);
+  expect(handlers).toHaveLength(1);
+  expect(await routeOnce(handlers[0]!, "https://x.example/style.css", {})).toEqual({ aborted: "blockedbyclient" });
+});
+
+test("blockHosts and requestHeaders share one route handler", async () => {
+  const handlers: Function[] = [];
+  await capture(fakeRoutingBrowser(handlers), "https://x.example/page", 1280, { ...STAB, blockHosts: ["ads.example"] }, false, AUTH);
+  expect(handlers).toHaveLength(1);
+  const passed = await routeOnce(handlers[0]!, "https://x.example/style.css", { "user-agent": "test" });
+  expect(passed.headers).toEqual({ "user-agent": "test", ...AUTH });
+});
+
+test("capture blocks service workers only when hosts are blocked", async () => {
+  let opts: any;
+  await capture(fakeBrowser((o) => { opts = o; }), "https://x.example", 1280, { ...STAB, blockHosts: ["ads.example"] });
+  expect(opts.serviceWorkers).toBe("block");
+  await capture(fakeBrowser((o) => { opts = o; }), "https://x.example", 1280, STAB);
+  expect(opts.serviceWorkers).toBeUndefined();
 });
 
 test("capture emulates the configured reducedMotion and colorScheme", async () => {
