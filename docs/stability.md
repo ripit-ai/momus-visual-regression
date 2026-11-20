@@ -10,6 +10,7 @@ across every 1.x release ([RFC-0009](rfcs/0009-stability-contract.md)).
 | **Config** | A valid 1.0 config stays valid and behaves the same. New fields are optional, with defaults. An unknown key is an error, so "valid" is exact ([ADR-0040](adr/0040-strict-config.md)). |
 | **CLI** | Commands, their flags, and what they mean are stable. Exit codes `0`, `1` and `2` keep their meanings ([cli.md](cli.md#exit-codes)). A command rejects flags it doesn't take ([ADR-0039](adr/0039-flags-per-command.md)). |
 | **`.sqlite`** | Every 1.x release opens, migrates and diffs against a baseline written by any earlier 1.x release. A fixture DB from each minor release is checked in and diffed in CI. |
+| **JSON results** | The `--json` document keeps `schemaVersion: 1` through 1.x: fields are only added, never removed or redefined. The schema is [results.schema.json](results.schema.json) ([ADR-0043](adr/0043-json-results-document.md)). |
 | **Programmatic API** | `defineConfig` and the `RawConfig` / `ResolvedConfig` types, and nothing else ([ADR-0041](adr/0041-public-api-is-defineconfig.md)). |
 | **Docker image** | The entrypoint, the `/work` mount, and the tags `:1`, `:1.x` and `:1.x.y`. |
 

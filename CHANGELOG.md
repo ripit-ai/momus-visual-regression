@@ -8,6 +8,20 @@ lists a `Deprecated` section, even when it is empty.
 
 ## [Unreleased]
 
+### Deprecated
+
+- Nothing.
+
+## [v1.1.0] - 2026-11-16
+
+### Added
+
+- **`--json FILE`** on `run` and `report` writes a versioned, machine-readable
+  results document (verdict, counts, provenance, and per comparison: outcome,
+  score, gate, regions, image hashes and paths). Its JSON Schema is
+  [docs/results.schema.json](docs/results.schema.json)
+  ([ADR-0043](docs/adr/0043-json-results-document.md)).
+
 ### Changed
 
 - Zod 4 validates the config. Messages for out-of-range or wrongly typed values
@@ -102,6 +116,7 @@ lists a `Deprecated` section, even when it is empty.
 See the [GitHub releases](https://github.com/bjhale/momus/releases) for 0.1.0
 through 0.9.4, whose notes were generated from commit messages.
 
-[Unreleased]: https://github.com/bjhale/momus/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/bjhale/momus/compare/v1.1.0...HEAD
+[v1.1.0]: https://github.com/bjhale/momus/releases/tag/v1.1.0
 [v1.0.0]: https://github.com/bjhale/momus/releases/tag/v1.0.0
 [0.9.4]: https://github.com/bjhale/momus/releases/tag/v0.9.4

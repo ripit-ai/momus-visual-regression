@@ -1,6 +1,6 @@
 # RFC-0008: CLI CI integration
 
-**Status:** Withdrawn · **Milestone:** M6 · **Created:** 2026-10-16
+**Status:** Accepted · **Milestone:** M6 · **Created:** 2026-10-16 · **ADRs:** [0043](../adr/0043-json-results-document.md)
 
 ## Summary
 
@@ -87,12 +87,23 @@ contract ([RFC-0009](0009-stability-contract.md)).
 
 - Should the Action live in this repo (under `action/`) or in its own? A
   separate repo is the GitHub Marketplace convention, but it splits releases.
-- Should an image in the JSON be a path, a content hash, or both?
+- ~~Should an image in the JSON be a path, a content hash, or both?~~ Both: a
+  hash always, a path when the PNG is on disk ([ADR-0043](../adr/0043-json-results-document.md)).
 
 ## Done when
 
-- [ ] `--json` (with its schema published), `--junit` and `--summary` work.
+- [x] `--json` (with its schema published) works.
+- [ ] `--junit` and `--summary` work.
 - [ ] CI metadata is detected on GitHub Actions and GitLab CI.
 - [ ] The Action is published, with a working example repo.
 - [ ] `--shard` plus `merge` produce a report identical to an unsharded run.
 - [ ] The server-ready checklist is satisfied.
+
+## Revisions
+
+- **2026-11-16:** Reinstated and Accepted. The status had been set to Withdrawn
+  without a recorded reason, while the roadmap and RFC-0009 still depended on
+  the JSON format. `--json FILE` shipped on `run` and also on `report`, so any
+  stored run can be exported
+  ([ADR-0043](../adr/0043-json-results-document.md)). The rest of the proposal
+  is unchanged and not yet built.

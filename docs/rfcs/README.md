@@ -44,6 +44,6 @@ Each RFC has these sections:
 | [0005](0005-storybook.md) | Storybook stories as targets | — | Withdrawn |
 | [0006](0006-capture-determinism-and-diff-quality.md) | Capture determinism and diff quality | M5 | Implemented |
 | [0007](0007-review-report.md) | Review report v2 | M6 | Draft |
-| [0008](0008-cli-ci-integration.md) | CLI CI integration | M6 | Draft |
+| [0008](0008-cli-ci-integration.md) | CLI CI integration | M6 | Accepted (`--json` implemented, [ADR-0043](../adr/0043-json-results-document.md)) |
 | [0009](0009-stability-contract.md) | The 1.0 stability contract | 1.0 | Draft |
 | [0010](0010-server.md) | The momus server | 2.0 | Draft |

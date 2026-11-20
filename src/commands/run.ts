@@ -6,11 +6,11 @@ import { isBrowserInstalled, launchBrowser, renderingMode, type Rendering } from
 import { discoverPaths } from "../discovery/discover";
 import { makeFetcher } from "../discovery/fetcher";
 import { DiffPool } from "../diff/pool";
-import { openDb, readComparisons, readBaselineImages } from "../store/db";
+import { openDb, readComparisons, readBaselineImages, readRun } from "../store/db";
 import { runFlow, type RunFlowResult } from "../pipeline/run-flow";
 import { captureSeams } from "./capture-seams";
 import { exitCodeFor } from "../pipeline/verdict";
-import { writeReport } from "../report/report";
+import { writeReport, writeResults } from "../report/report";
 import type { ResolvedConfig } from "../config/schema";
 import type { ComparisonRecord } from "../types";
 import { scenariosSource } from "../targets/scenarios";
@@ -100,7 +100,8 @@ async function runWithDb(parsed: ParsedCli, config: ResolvedConfig, db: Database
   // Read comparisons once and reuse for both the report and the exit code.
   const rows = readComparisons(db, result.runId);
   // config.diff carries allowAdded/allowRemoved; one gate for report and exit code.
-  await writeReport(db, result.runId, config.output.report, rows, config.output.reportImages);
+  const images = await writeReport(db, result.runId, config.output.report, rows, config.output.reportImages);
+  if (parsed.jsonPath) await writeResults(readRun(db, result.runId)!, rows, parsed.jsonPath, config.output.report, images);
   const code = exitCodeFor(rows, config.diff);
   // Make freezing explicit: say whether prod was captured now or reused.
   if (result.materialized) {
@@ -114,7 +115,8 @@ async function runWithDb(parsed: ParsedCli, config: ResolvedConfig, db: Database
   } else {
     console.log(`Reused prod baseline from ${result.createdAt}. Refresh with \`momus snapshot\`.`);
   }
-  console.log(resultLine(config.output.report, result.runId, rows, code));
+  console.log(resultLine(parsed.jsonPath ? `${config.output.report} and ${parsed.jsonPath}` : config.output.report,
+    result.runId, rows, code));
   return code;
 }
 
