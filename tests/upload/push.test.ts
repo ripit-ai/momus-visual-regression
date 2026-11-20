@@ -31,5 +31,5 @@ test("uploadAfterRun prints the run URL on success", async () => {
   const out: string[] = [];
   const got = await uploadAfterRun(1, async () => ({ runId: 7, url: "http://s/runs/7", sent: 1, skipped: 0 }), { out: (s) => out.push(s), err: () => {} });
   expect(got).toBe(1);
-  expect(out).toEqual(["Uploaded run #7 to http://s/runs/7"]);
+  expect(out).toEqual(["Uploaded to http://s/runs/7 (server run #7)"]);
 });

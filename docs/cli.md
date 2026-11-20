@@ -204,8 +204,10 @@ Schema is [results.schema.json](results.schema.json).
 
 ## Exit codes
 
-`momus run` returns a process exit code so it can gate CI. `snapshot` and
-`report` use `0` and `2` the same way. These meanings are part of the 1.x
+`momus run` returns a process exit code so it can gate CI. `snapshot`,
+`report`, and `upload` use `0` and `2` the same way. An upload failure during
+`run --upload` warns on stderr and never changes `run`'s exit code
+([ADR-0049](adr/0049-upload-never-changes-the-run-exit-code.md)). These meanings are part of the 1.x
 contract ([stability.md](stability.md)).
 
 | Code | Meaning |

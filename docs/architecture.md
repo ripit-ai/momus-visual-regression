@@ -25,6 +25,7 @@ capture; emit one file a human can open.
 | `momus snapshot` | Discover from prod + capture prod → baseline tables. Replaces any existing baseline atomically; refuses (exit 2) if every capture failed. |
 | `momus run` | Diff live dev against the stored prod baseline → report + exit code. Materializes a baseline first if none exists, or if `--snapshot` is passed. |
 | `momus report` | Re-render a stored run's report: the latest, or `--run ID`. |
+| `momus upload` | Send a stored run (the latest, or `--run ID`) to a momus server. Reads `output.db`; needs no browser. |
 
 ## The baseline model
 
@@ -139,13 +140,16 @@ recorder; the pipelines never see the library.
 ```text
 src/
 ├── cli.ts              # arg parsing (util.parseArgs), subcommand dispatch, help
-├── commands/           # init, install, snapshot, run, report — config load, browser
+├── commands/           # init, install, snapshot, run, report, upload — config load, browser
 │                       #   lifecycle, and wiring; logic lives in pipeline/
 │   └── capture-seams.ts  # the real setupDev/setupProd/getDev/captureProd; holds the sessions
 ├── config/
 │   ├── schema.ts       # Zod schema, ResolvedConfig, defineConfig()
 │   ├── redact.ts       # redactConfig / setupIdentity: no credential, or hash of one, is stored
 │   └── load.ts         # read config file, apply CLI overrides
+├── upload/
+│   ├── client.ts       # staged, content-addressed upload protocol; retries; 30 s per-request timeout
+│   └── push.ts         # collectImages, pushRun, uploadAfterRun
 ├── targets/
 │   ├── target.ts       # Target, TargetSource, ids, viewport narrowing, canonical recipe JSON (pure)
 │   ├── pages.ts        # pagesSource: discovery for snapshots; baseline ∪ urlList for runs
@@ -308,6 +312,12 @@ message, surfaced in the report as an error card.
 error rows) and `2` on operational failure, including every capture failing.
 `momus report` exits `0`, or `2` for a missing DB file, no runs, or an unknown
 run id.
+`momus upload` exits `0` on success and `2` on any failure (no server
+configured, missing DB, no runs, unknown run id, upload error). An upload
+failure during `run --upload` warns on stderr and never changes `run`'s exit
+code, while `run --upload` with no server configured is a config error (`2`)
+before capture; see
+[ADR-0049](adr/0049-upload-never-changes-the-run-exit-code.md).
 
 ## Testing
 

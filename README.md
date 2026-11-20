@@ -113,7 +113,7 @@ every setting, and each one's default.
 ## Documentation
 
 - [Commands and flags](docs/cli.md): `init`, `install-browser`, `snapshot`,
-  `run`, `report`, and the exit codes.
+  `run`, `report`, `upload`, and the exit codes.
 - [Configuration](docs/config.md): every field, scenarios (pages in a
   particular state) and setup (logging in).
 - [CI recipes](docs/ci.md): GitHub Actions and GitLab, keeping the baseline

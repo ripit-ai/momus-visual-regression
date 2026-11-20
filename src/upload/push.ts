@@ -33,7 +33,7 @@ export async function uploadAfterRun(
 ): Promise<number> {
   try {
     const r = await push();
-    log.out(`Uploaded run #${r.runId} to ${r.url}`);
+    log.out(`Uploaded to ${r.url} (server run #${r.runId})`);
   } catch (e) {
     log.err(`Warning: upload failed; the run's result is unchanged: ${e instanceof Error ? e.message : String(e)}`);
   }
