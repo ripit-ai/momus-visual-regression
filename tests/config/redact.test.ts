@@ -46,3 +46,22 @@ test("redactConfig removes every setup secret from the stored config", () => {
   expect(json).not.toContain("prod.json");
   expect(ConfigSchema.parse(redactConfig(c))).toBeDefined(); // still a valid config shape
 });
+
+test("redactConfig keeps header names and removes their values (ADR-0045)", () => {
+  const c = ConfigSchema.parse({ ...base, requestHeaders: { "CF-Access-Client-Id": "id-123", "CF-Access-Client-Secret": "s3cret" } });
+  const stored = redactConfig(c);
+  expect(Object.keys(stored.requestHeaders)).toEqual(["CF-Access-Client-Id", "CF-Access-Client-Secret"]);
+  const json = JSON.stringify(stored);
+  expect(json).not.toContain("id-123");
+  expect(json).not.toContain("s3cret");
+  // The live config is untouched: captures still send the real values.
+  expect(c.requestHeaders["CF-Access-Client-Secret"]).toBe("s3cret");
+  expect(ConfigSchema.parse(stored)).toBeDefined();
+});
+
+test("redactConfig redacts headers and setup together", () => {
+  const c = ConfigSchema.parse({ ...base, requestHeaders: { Authorization: "Bearer tok" }, setup: login("p", "hunter2") });
+  const json = JSON.stringify(redactConfig(c));
+  expect(json).not.toContain("Bearer tok");
+  expect(json).not.toContain("hunter2");
+});

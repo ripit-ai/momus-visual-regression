@@ -56,6 +56,7 @@ For how the system fits together today, see [architecture.md](../architecture.md
 | [0042](0042-native-per-arch-image-builds.md) | Each image platform builds on its own architecture | 2026-10-30 |
 | [0043](0043-json-results-document.md) | `--json FILE` writes a versioned results document | 2026-11-16 |
 | [0044](0044-block-hosts.md) | `stabilize.blockHosts` aborts requests to listed hosts, and is gated | 2026-11-20 |
+| [0045](0045-request-headers-are-redacted.md) | `requestHeaders` values are never stored, and v7 removes the ones that were | 2026-11-21 |
 
 ## Open questions
 
