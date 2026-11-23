@@ -1,6 +1,6 @@
 # ADR-0034: An unstable baseline image never fails the gate; `retries` re-captures dev only
 
-**Date:** 2026-10-18 · **Status:** Accepted · **Implements:** [RFC-0006](../rfcs/0006-capture-determinism-and-diff-quality.md)
+**Date:** 2026-10-18 · **Status:** Accepted (`retries` extended to baseline capture by [ADR-0044](0044-unloaded-images-are-a-warning.md)) · **Implements:** [RFC-0006](../rfcs/0006-capture-determinism-and-diff-quality.md)
 
 ## Context
 

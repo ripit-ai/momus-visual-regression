@@ -8,6 +8,27 @@ lists a `Deprecated` section, even when it is empty.
 
 ## [Unreleased]
 
+### Added
+
+- **Images that didn't load are reported.** A capture now records the rendered
+  images that failed or were still loading when it was taken (`<img>`, CSS
+  backgrounds, video posters), including an image the page swapped for a
+  placeholder after it failed. The report flags the row and names the images
+  and the side, `run` and `snapshot` say how many captures are affected, and
+  `--json` lists them per side as `unloadedImages`, with a count in
+  `summary.unloaded`. It is a warning: statuses, scores and exit codes are
+  unchanged ([ADR-0044](docs/adr/0044-unloaded-images-are-a-warning.md)).
+
+### Changed
+
+- **`retries` also applies to the baseline.** While a baseline image has images
+  that didn't load, it is captured again, up to `retries` times, and the
+  capture with the fewest is kept. A config that already sets `retries` will
+  take those extra prod captures at its next snapshot; the default (`0`) is
+  unchanged.
+- **DB schema v7.** Opening an older `.sqlite` upgrades it in place; momus 1.1.0
+  and earlier can't open it afterwards.
+
 ### Deprecated
 
 - Nothing.

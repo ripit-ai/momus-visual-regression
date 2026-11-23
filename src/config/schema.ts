@@ -164,7 +164,8 @@ export const ConfigSchema = z.object({
     allowAdded: z.boolean().default(false),
     allowRemoved: z.boolean().default(false),
   }).strict().prefault({}),
-  // Re-capture dev up to N times when a target fails the gate (ADR-0034).
+  // Re-capture dev up to N times when a target fails the gate (ADR-0034),
+  // and a baseline image while its images didn't load (ADR-0044).
   retries: z.number().int().min(0).max(10).default(0),
   concurrency: z.object({
     screenshots: z.number().int().positive().default(6),

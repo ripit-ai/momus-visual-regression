@@ -373,3 +373,82 @@ test("verify: a second capture that throws keeps the first, and the snapshot com
   expect(row!.unstableRegions).toBeUndefined();
   expect(readSnapshot(db)).not.toBeNull();
 });
+
+// --- ADR-0044: images that didn't load ---
+
+const hole = (n: number) => Array.from({ length: n }, (_, i) =>
+  ({ url: `https://img.example.com/${i}.jpg`, state: "failed" as const }));
+const retryCfg = (retries: number) =>
+  ConfigSchema.parse({ dev: "https://dev.example.com", prod: "https://www.example.com", viewports: [1280], retries });
+
+test("unloaded images are stored on the baseline image", async () => {
+  const db = openDb(":memory:");
+  let calls = 0;
+  await snapshotPipeline({
+    config: retryCfg(0), db, createdAt: "t", discover: async () => ["/"],
+    captureFn: async () => { calls++; return { ok: true, png: png(1), unloadedImages: hole(2) }; },
+  });
+  expect(calls).toBe(1); // retries: 0 never re-captures
+  expect(readBaselineImages(db)[0]!.unloadedImages).toEqual(hole(2));
+});
+
+test("retries re-captures a baseline image until its images load", async () => {
+  const db = openDb(":memory:");
+  let calls = 0;
+  await snapshotPipeline({
+    config: retryCfg(3), db, createdAt: "t", discover: async () => ["/"],
+    captureFn: async () => (++calls < 3
+      ? { ok: true, png: png(1), unloadedImages: hole(1) }
+      : { ok: true, png: png(200) }),
+  });
+  expect(calls).toBe(3); // stopped as soon as one was whole
+  const [row] = readBaselineImages(db);
+  expect(row!.unloadedImages).toBeUndefined();
+  expect(Array.from(row!.image!)).toEqual(Array.from(png(200)));
+});
+
+test("retries keeps the capture with the fewest unloaded images, and ignores a failed retry", async () => {
+  const db = openDb(":memory:");
+  const outcomes = [
+    { ok: true, png: png(1), unloadedImages: hole(3) },
+    { ok: false, error: "timeout" },
+    { ok: true, png: png(2), unloadedImages: hole(1) },
+    { ok: true, png: png(3), unloadedImages: hole(2) },
+  ];
+  let calls = 0;
+  await snapshotPipeline({
+    config: retryCfg(3), db, createdAt: "t", discover: async () => ["/"],
+    captureFn: async () => outcomes[calls++]!,
+  });
+  expect(calls).toBe(4);
+  const [row] = readBaselineImages(db);
+  expect(row!.status).toBe("ok");
+  expect(row!.unloadedImages).toEqual(hole(1));
+  expect(Array.from(row!.image!)).toEqual(Array.from(png(2)));
+});
+
+test("retries doesn't re-capture a baseline image whose images all loaded", async () => {
+  const db = openDb(":memory:");
+  let calls = 0;
+  await snapshotPipeline({
+    config: retryCfg(5), db, createdAt: "t", discover: async () => ["/", "/b"],
+    captureFn: async () => { calls++; return { ok: true, png: png(1) }; },
+  });
+  expect(calls).toBe(2);
+});
+
+test("a retry that throws is ignored like one that fails: the capture in hand is kept", async () => {
+  const db = openDb(":memory:");
+  let calls = 0;
+  await snapshotPipeline({
+    config: retryCfg(2), db, createdAt: "t", discover: async () => ["/"],
+    captureFn: async () => {
+      if (++calls === 2) throw new Error("browser closed");
+      return { ok: true, png: png(calls), unloadedImages: hole(1) };
+    },
+  });
+  expect(calls).toBe(3);
+  const [row] = readBaselineImages(db);
+  expect(row!.status).toBe("ok");
+  expect(Array.from(row!.image!)).toEqual(Array.from(png(1))); // the third was no better
+});

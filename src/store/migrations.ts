@@ -244,6 +244,14 @@ function v6(db: Database): void {
   db.exec("ALTER TABLE snapshot ADD COLUMN engine_version TEXT;");
 }
 
+// --- v7: images that didn't load (ADR-0044). NULL on older rows, which
+// render as before.
+function v7(db: Database): void {
+  db.exec("ALTER TABLE baseline_images ADD COLUMN unloaded_images_json TEXT;");
+  db.exec("ALTER TABLE comparisons ADD COLUMN dev_unloaded_images_json TEXT;");
+  db.exec("ALTER TABLE comparisons ADD COLUMN prod_unloaded_images_json TEXT;");
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, up: v1 },
   { version: 2, up: v2, vacuum: true },
@@ -251,6 +259,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 4, up: v4 },
   { version: 5, up: v5 },
   { version: 6, up: v6 },
+  { version: 7, up: v7 },
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length;

@@ -79,6 +79,10 @@ async function compareOnce(
   args: RunPipelineArgs, base: ComparisonRecord, dev: CaptureResult, prod: CaptureResult, failScore: number,
 ): Promise<ComparisonRecord> {
   const rec: ComparisonRecord = { ...base };
+  // On every outcome, an error included: it's what a reviewer needs to tell
+  // a missing image from a change (ADR-0044).
+  if (dev.ok && dev.unloadedImages?.length) rec.devUnloadedImages = dev.unloadedImages;
+  if (prod.ok && prod.unloadedImages?.length) rec.prodUnloadedImages = prod.unloadedImages;
   if (!dev.ok || !prod.ok) {
     rec.status = "error";
     rec.error = [dev.ok ? null : `dev: ${dev.error}`, prod.ok ? null : `prod: ${prod.error}`]
@@ -144,14 +148,15 @@ export async function runPipeline(args: RunPipelineArgs): Promise<number> {
           // Gone from the live list: nothing to capture. Show what the baseline held.
           const prod = await args.getProd(job);
           rec.status = "removed";
-          if (prod.ok) rec.prodImage = prod.png; else rec.error = `prod: ${prod.error}`;
+          if (prod.ok) { rec.prodImage = prod.png; rec.prodUnloadedImages = prod.unloadedImages; }
+          else rec.error = `prod: ${prod.error}`;
           saveComparison(db, runId, rec);
           return;
         }
         if (action === "added") {
           // No baseline to diff against: capture dev so a reviewer can see it.
           const dev = await args.getDev(job);
-          if (dev.ok) { rec.status = "added"; rec.devImage = dev.png; }
+          if (dev.ok) { rec.status = "added"; rec.devImage = dev.png; rec.devUnloadedImages = dev.unloadedImages; }
           else { rec.status = "error"; rec.error = `dev: ${dev.error}`; }
           saveComparison(db, runId, rec);
           return;

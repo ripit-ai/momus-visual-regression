@@ -6,11 +6,24 @@ import type { TargetSourceName } from "./targets/target";
  * in dev, prod, and the diff. */
 export interface Region { x: number; y: number; width: number; height: number }
 
+/** An image the page asked for that wasn't there when the screenshot was
+ * taken: `failed` (the request errored or the bytes didn't decode) or
+ * `pending` (still loading when `stabilize.timeoutMs` ran out). The capture
+ * itself succeeded, so this is a warning on it, never an error (ADR-0044). */
+export interface UnloadedImage {
+  url: string;
+  state: "failed" | "pending";
+  /** Why, when the network said: "HTTP 504", "net::ERR_CONNECTION_RESET". */
+  detail?: string;
+}
+
 /** Raw PNG capture for one side of a comparison. */
 export interface CaptureResult {
   ok: boolean;
   png?: Uint8Array;
   error?: string;
+  /** Rendered images that didn't load (the first 20 found). Absent when all did. */
+  unloadedImages?: UnloadedImage[];
   /** A baseline image that rendered differently across two captures
    * (`stabilize.verify`), and where. Set only on baseline reads. */
   unstableRegions?: Region[];
@@ -74,4 +87,8 @@ export interface ComparisonRecord {
   unstableRegions?: Region[];
   /** How many times dev was re-captured before this outcome (`retries`). */
   retries?: number;
+  /** Images that didn't load on each side's capture; absent when all did,
+   * and on rows from before v7. Shown as a warning, never gated (ADR-0044). */
+  devUnloadedImages?: UnloadedImage[];
+  prodUnloadedImages?: UnloadedImage[];
 }

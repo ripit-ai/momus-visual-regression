@@ -45,7 +45,7 @@ test("the document validates against its own schema", () => {
 test("verdict and counts follow the run's own gate", () => {
   const doc = buildResults(run(), [failing, errored]);
   expect(doc.verdict).toBe("FAIL");
-  expect(doc.summary).toEqual({ total: 2, passed: 0, failed: 1, errored: 1, added: 0, removed: 0, unstable: 0 });
+  expect(doc.summary).toEqual({ total: 2, passed: 0, failed: 1, errored: 1, added: 0, removed: 0, unstable: 0, unloaded: 0 });
   const added: ComparisonRecord = { ...errored, path: "/new", status: "added", error: undefined };
   expect(buildResults(run({ allowAdded: true }), [added]).verdict).toBe("PASS");
   expect(buildResults(run(), [added]).verdict).toBe("FAIL");
@@ -103,4 +103,25 @@ test("run provenance and the baseline identity it diffed against", () => {
 test("docs/results.schema.json is the published form of ResultsSchema", () => {
   const published = JSON.parse(readFileSync(join(import.meta.dir, "../../docs/results.schema.json"), "utf8"));
   expect(published).toEqual(resultsJsonSchema());
+});
+
+test("each side lists the images it was captured without (ADR-0044)", () => {
+  const holed: ComparisonRecord = {
+    ...failing,
+    prodUnloadedImages: [
+      { url: "https://img.example.com/hero.jpg", state: "failed", detail: "HTTP 504" },
+      { url: "https://img.example.com/late.jpg", state: "pending" },
+    ],
+  };
+  const doc = buildResults(run(), [holed, errored]);
+  expect(ResultsSchema.safeParse(doc).success).toBe(true);
+  expect(doc.summary.unloaded).toBe(1);
+  expect(doc.comparisons[0]!.dev.unloadedImages).toEqual([]);
+  expect(doc.comparisons[0]!.prod.unloadedImages).toEqual([
+    { url: "https://img.example.com/hero.jpg", state: "failed", detail: "HTTP 504" },
+    { url: "https://img.example.com/late.jpg", state: "pending", detail: null },
+  ]);
+  // A warning: the outcome and the gate are what they were without it.
+  expect(doc.comparisons[0]!.outcome).toBe("fail");
+  expect(doc.comparisons[1]!.prod.unloadedImages).toEqual([]);
 });

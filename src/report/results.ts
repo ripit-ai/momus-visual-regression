@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { RunRow } from "../store/db";
-import type { ComparisonRecord } from "../types";
+import type { ComparisonRecord, UnloadedImage } from "../types";
 import { failsGate } from "../pipeline/verdict";
 import { MOMUS_VERSION } from "../version";
 import { itemClass, summarize } from "./summary";
@@ -19,12 +19,22 @@ const RegionSchema = z.object({ x: int, y: int, width: int, height: int });
  * them; `file` is set only when the report wrote the PNG beside itself. */
 const ImageSchema = z.object({ sha256: z.string(), bytes: int, file: z.string().nullable() }).nullable();
 
+const UnloadedImageSchema = z.object({
+  url: z.string(),
+  state: z.enum(["failed", "pending"]),
+  /** Why, when the network said, e.g. "HTTP 504". */
+  detail: z.string().nullable(),
+});
+
 const SideSchema = z.object({
   url: z.string(),
   /** This side's own size before padding; null on rows from before DB v5. */
   width: int.nullable(),
   height: int.nullable(),
   image: ImageSchema,
+  /** Images this side was captured without (the first 20 found); empty when all
+   * loaded and on rows from before DB v7. A warning, not part of the gate. */
+  unloadedImages: z.array(UnloadedImageSchema),
 });
 
 const ComparisonSchema = z.object({
@@ -62,6 +72,8 @@ export const ResultsSchema = z.object({
   verdict: z.enum(["PASS", "FAIL"]),
   summary: z.object({
     total: int, passed: int, failed: int, errored: int, added: int, removed: int, unstable: int,
+    /** Comparisons with unloaded images on either side; they keep their outcome. */
+    unloaded: int,
   }),
   gate: z.object({ allowAdded: z.boolean(), allowRemoved: z.boolean() }),
   run: z.object({
@@ -98,6 +110,10 @@ export function resultsJsonSchema(): object {
   return z.toJSONSchema(ResultsSchema, { io: "input" });
 }
 
+function unloaded(images: UnloadedImage[] | undefined): z.infer<typeof UnloadedImageSchema>[] {
+  return (images ?? []).map((u) => ({ url: u.url, state: u.state, detail: u.detail ?? null }));
+}
+
 export type ImageFile = (r: ComparisonRecord, side: "dev" | "prod" | "diff") => string | undefined;
 
 function image(b: Uint8Array | undefined, file: string | undefined): z.infer<typeof ImageSchema> {
@@ -118,7 +134,7 @@ export function buildResults(run: RunRow, rows: ComparisonRecord[], imageFile: I
     verdict: run.status === "complete" ? s.verdict : "FAIL",
     summary: {
       total: s.total, passed: s.passed, failed: s.failed, errored: s.errored,
-      added: s.added, removed: s.removed, unstable: s.unstable,
+      added: s.added, removed: s.removed, unstable: s.unstable, unloaded: s.unloaded,
     },
     gate,
     run: {
@@ -143,8 +159,14 @@ export function buildResults(run: RunRow, rows: ComparisonRecord[], imageFile: I
       diffPixels: r.diffPixels ?? null,
       width: r.width ?? null,
       height: r.height ?? null,
-      dev: { url: r.devUrl, width: r.devWidth ?? null, height: r.devHeight ?? null, image: image(r.devImage, imageFile(r, "dev")) },
-      prod: { url: r.prodUrl, width: r.prodWidth ?? null, height: r.prodHeight ?? null, image: image(r.prodImage, imageFile(r, "prod")) },
+      dev: {
+        url: r.devUrl, width: r.devWidth ?? null, height: r.devHeight ?? null,
+        image: image(r.devImage, imageFile(r, "dev")), unloadedImages: unloaded(r.devUnloadedImages),
+      },
+      prod: {
+        url: r.prodUrl, width: r.prodWidth ?? null, height: r.prodHeight ?? null,
+        image: image(r.prodImage, imageFile(r, "prod")), unloadedImages: unloaded(r.prodUnloadedImages),
+      },
       diff: { image: image(r.diffImage, imageFile(r, "diff")) },
       regions: r.regions ?? [],
       regionCount: r.regionCount ?? null,

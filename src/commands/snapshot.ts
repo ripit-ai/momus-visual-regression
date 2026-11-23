@@ -7,6 +7,7 @@ import { captureSeams } from "./capture-seams";
 import { discoverPaths } from "../discovery/discover";
 import { makeFetcher } from "../discovery/fetcher";
 import { openDb, readBaselineImages } from "../store/db";
+import { unloadedBaselineWarning } from "../report/summary";
 import { snapshotPipeline } from "../pipeline/snapshot";
 import type { ResolvedConfig } from "../config/schema";
 import { scenariosSource } from "../targets/scenarios";
@@ -86,7 +87,9 @@ async function snapshotWithDb(config: ResolvedConfig, db: Database, rendering: R
     await browser.close().catch(() => {});
   }
 
-  const count = readBaselineImages(db).length;
-  console.log(`Wrote baseline to ${config.output.db} (${count} prod captures). Exit 0.`);
+  const images = readBaselineImages(db);
+  const warning = unloadedBaselineWarning(images, config.retries);
+  if (warning) console.warn(warning);
+  console.log(`Wrote baseline to ${config.output.db} (${images.length} prod captures). Exit 0.`);
   return 0;
 }

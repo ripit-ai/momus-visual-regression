@@ -151,7 +151,15 @@ test("v5 adds RFC-0006's columns", () => {
 
 test("v6 records the baseline's engine version", () => {
   const db = openDb(":memory:");
-  expect(LATEST_VERSION).toBe(6);
   const cols = (db.query("PRAGMA table_info(snapshot)").all() as { name: string }[]).map((c) => c.name);
   expect(cols).toContain("engine_version");
+});
+
+test("v7 adds the unloaded-image columns", () => {
+  const db = openDb(":memory:");
+  expect(LATEST_VERSION).toBe(7);
+  const cols = (t: string) => (db.query(`PRAGMA table_info(${t})`).all() as Array<{ name: string }>).map((c) => c.name);
+  expect(cols("baseline_images")).toContain("unloaded_images_json");
+  expect(cols("comparisons")).toContain("dev_unloaded_images_json");
+  expect(cols("comparisons")).toContain("prod_unloaded_images_json");
 });

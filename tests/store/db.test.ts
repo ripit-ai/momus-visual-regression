@@ -345,3 +345,26 @@ test("snapshot rendering round-trips; absent reads as host", () => {
   db.exec("UPDATE snapshot SET rendering = NULL");
   expect(readSnapshot(db)!.rendering).toBe("host");
 });
+
+// --- ADR-0044: images that didn't load ---
+
+test("unloaded images round-trip on comparisons and baseline images; none reads as undefined", () => {
+  const db = openDb(":memory:");
+  const runId = startRun(db, { devBaseUrl: "d", prodBaseUrl: "p", configJson: "{}", startedAt: "t" });
+  const missing = [{ url: "https://img.example.com/hero.jpg", state: "failed" as const, detail: "HTTP 504" },
+    { url: "https://img.example.com/late.jpg", state: "pending" as const }];
+  const rec: ComparisonRecord = { path: "/a", viewport: 1280, devUrl: "d/a", prodUrl: "p/a", status: "ok", prodUnloadedImages: missing };
+  saveComparison(db, runId, rec);
+  saveComparison(db, runId, { ...rec, path: "/b", prodUnloadedImages: undefined, devUnloadedImages: [] });
+  const rows = new Map(readComparisons(db, runId).map((r) => [r.path, r]));
+  expect(rows.get("/a")!.prodUnloadedImages).toEqual(missing);
+  expect(rows.get("/a")!.devUnloadedImages).toBeUndefined();
+  expect(rows.get("/b")!.prodUnloadedImages).toBeUndefined();
+  expect(rows.get("/b")!.devUnloadedImages).toBeUndefined(); // an empty list is not stored
+
+  saveBaselineImage(db, { path: "/a", viewport: 1280, prodUrl: "p/a", status: "ok", image: new Uint8Array([1]), unloadedImages: missing });
+  saveBaselineImage(db, { path: "/b", viewport: 1280, prodUrl: "p/b", status: "ok", image: new Uint8Array([1]) });
+  const images = new Map(readBaselineImages(db).map((r) => [r.path, r]));
+  expect(images.get("/a")!.unloadedImages).toEqual(missing);
+  expect(images.get("/b")!.unloadedImages).toBeUndefined();
+});

@@ -33,7 +33,7 @@ export function configScaffold(): string {
     // clock: "2026-01-01T00:00:00Z", // pin Date so relative times ("3 minutes ago") render the same
     // verify: true,                  // capture each baseline image twice; mark ones that move unstable
   },
-  // retries: 2,   // re-capture dev before failing a target
+  // retries: 2,   // re-capture dev before failing a target, and prod while its images didn't load
 
   // Pages in another state. Steps: click, hover, fill, press, select, scroll, waitFor, wait, evaluate.
   // Don't put credentials in scenario steps; they are stored in the .sqlite as-is.

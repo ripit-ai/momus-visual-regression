@@ -146,7 +146,9 @@ every setting, and each one's default.
    on all three images. A page whose dev and prod sizes differ says so ("dev is
    40 px taller than prod"), and the band only one side covers is drawn magenta
    in the diff. A capture that failed on one side still shows the side that
-   rendered. Then exit `0`, `1` or `2` ([exit codes](docs/cli.md#exit-codes)).
+   rendered. A side captured while an image failed to load is flagged ("2
+   images not loaded") with the image URLs, so a hole in a screenshot isn't
+   mistaken for a change. Then exit `0`, `1` or `2` ([exit codes](docs/cli.md#exit-codes)).
 
 ## Notes & known limitations
 

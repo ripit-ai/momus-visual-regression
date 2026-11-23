@@ -281,3 +281,31 @@ test("single images link their original in thumbnails mode", () => {
   expect(html.match(/<a href="f\.png" target="_blank" rel="noopener"><img src="t\.png"/g)!.length).toBe(3);
   expect(renderReport(changed, { dev: "d", prod: "p" })).not.toContain("<a href=");
 });
+
+test("a side captured without its images is flagged on the row and in the counts (ADR-0044)", () => {
+  const html = one({ prodUnloadedImages: [{ url: "https://img.example.com/hero.jpg?a=1&b=2", state: "failed", detail: "HTTP 504" }] });
+  expect(html).toContain('<span class="unloaded">1 image not loaded</span>');
+  expect(html).toContain("prod was captured without 1 image: https://img.example.com/hero.jpg?a=1&amp;b=2 (HTTP 504).");
+  expect(html).toContain("may be a missing image, not a change");
+  expect(html).toContain("re-capture it with momus snapshot");
+  expect(html).toContain(" · 1 with images not loaded</div>");
+});
+
+test("a dev-only unloaded image doesn't tell you to re-capture the baseline", () => {
+  const html = one({ devUnloadedImages: [{ url: "https://x/a.jpg", state: "pending" }] });
+  expect(html).toContain("dev was captured without 1 image: https://x/a.jpg (still loading).");
+  expect(html).not.toContain("re-capture it with momus snapshot");
+});
+
+test("a row whose images all loaded says nothing about images", () => {
+  const html = one({});
+  expect(html).not.toContain('<span class="unloaded">');
+  expect(html).not.toContain('class="note warn"');
+  expect(html).not.toContain("images not loaded</div>");
+});
+
+test("an error row still shows what the side that rendered was missing", () => {
+  const html = renderReport([{ path: "/x", viewport: 375, devUrl: "d", prodUrl: "p", status: "error", error: "dev: boom",
+    prodImage: new Uint8Array([2]), prodUnloadedImages: [{ url: "https://x/a.jpg", state: "failed" }] }], { dev: "d", prod: "p" });
+  expect(html).toContain("prod was captured without 1 image: https://x/a.jpg (failed to load).");
+});
