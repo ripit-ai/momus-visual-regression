@@ -114,9 +114,10 @@ Capture the baseline in CI too, not on a laptop outside the image.
 
 Read credentials from the environment in `momus.config.ts`, never write them in
 it, and pass them to the container with `-e NAME` (GitHub: from `secrets.*`;
-GitLab: from CI/CD variables). Only setup `fill` values and `storageState`
-paths are redacted before anything is stored in `momus.sqlite`; see
-[config.md](config.md#setup) for what else is stored as-is.
+GitLab: from CI/CD variables). Only setup `fill` values, `storageState` paths
+and `requestHeaders` values are redacted before anything is stored in
+`momus.sqlite`; see [config.md](config.md#setup) for what else is stored
+as-is.
 
 ## When a job exits 2
 

@@ -125,7 +125,11 @@ docker run --rm -v "$PWD:/work" -e CF_ACCESS_CLIENT_ID -e CF_ACCESS_CLIENT_SECRE
   bjhale/momus run --config momus.config.ts
 ```
 
-`requestHeaders` values are stored in the `.sqlite` as-is.
+`requestHeaders` values are never written to the `.sqlite`: the stored config
+keeps each header's name and replaces its value with `[redacted]`. A file from
+momus 1.1.0 or earlier does hold them; opening it with this version removes
+them ([ADR-0045](adr/0045-request-headers-are-redacted.md)). A copy of that file
+made earlier still holds them, so rotate a token that was in one you shared.
 
 ## Discovery
 
@@ -464,11 +468,11 @@ header. That shows up as a diff. Use `mask` for it.
 - **A setup failure exits 2**, naming the side and step, for example
   `setup (prod) step 3: fill "#password"`. Without a session every page would
   capture the login screen.
-- **Where credentials may live.** Put them only in a setup `fill` value or a
-  `storageState` file. Setup `fill` values and `storageState` paths are redacted
-  before anything is stored, and the session is kept in memory only. Everything
-  else is stored in the `.sqlite` as-is: `goto` URLs, `evaluate` scripts,
-  `select` values, and every scenario step.
+- **Where credentials may live.** Put them only in a setup `fill` value, a
+  `storageState` file or a `requestHeaders` value. Those are redacted before
+  anything is stored (header names are kept), and the session is kept in
+  memory only. Everything else is stored in the `.sqlite` as-is: `goto` URLs,
+  `evaluate` scripts, `select` values, and every scenario step.
 - Prod's setup is gated; dev's isn't. Because `fill` values are redacted,
   rotating a password doesn't invalidate the baseline, and switching prod to a
   different user isn't caught: re-run `momus snapshot` when you do.

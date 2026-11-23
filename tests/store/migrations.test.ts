@@ -1,10 +1,10 @@
 // tests/store/migrations.test.ts
 import { test, expect, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { openDb as openDbRaw } from "../../src/store/db";
-import { MIGRATIONS, LATEST_VERSION, migrate, userVersion, DbTooNewError, type Migration } from "../../src/store/migrations";
+import { MIGRATIONS, LATEST_VERSION, migrate, userVersion, scrubRequestHeaders, DbTooNewError, type Migration } from "../../src/store/migrations";
 
 let dir = "";
 const opened: Database[] = [];
@@ -162,4 +162,57 @@ test("v7 adds the unloaded-image columns", () => {
   expect(cols("baseline_images")).toContain("unloaded_images_json");
   expect(cols("comparisons")).toContain("dev_unloaded_images_json");
   expect(cols("comparisons")).toContain("prod_unloaded_images_json");
+});
+
+test("scrubRequestHeaders replaces values, keeps names, and leaves everything else alone", () => {
+  const before = { dev: "https://d", requestHeaders: { "CF-Access-Client-Secret": "s3cret", "X-Env": "qa" }, viewports: [375] };
+  const after = JSON.parse(scrubRequestHeaders(JSON.stringify(before))!);
+  expect(after).toEqual({ ...before, requestHeaders: { "CF-Access-Client-Secret": "[redacted]", "X-Env": "[redacted]" } });
+  // Nothing to do: no headers, none set, already redacted, or not a config at all.
+  expect(scrubRequestHeaders("{}")).toBeNull();
+  expect(scrubRequestHeaders(JSON.stringify({ requestHeaders: {} }))).toBeNull();
+  expect(scrubRequestHeaders(JSON.stringify(after))).toBeNull();
+  expect(scrubRequestHeaders("not json")).toBeNull();
+  expect(scrubRequestHeaders("null")).toBeNull();
+});
+
+test("v7 removes request header values an older momus stored, from the rows and from the file", () => {
+  const file = tmpFile();
+  const raw = track(new Database(file, { create: true }));
+  raw.exec("PRAGMA journal_mode = WAL;");
+  migrate(raw, MIGRATIONS.slice(0, 6));
+  // One short value, and one long enough to spill onto overflow pages.
+  const long = `long-${"k9".repeat(6000)}-end`;
+  const config = JSON.stringify({ dev: "https://d", requestHeaders: { "CF-Access-Client-Secret": "s3cret-token-value", Cookie: long } });
+  const insertRun = `INSERT INTO runs (started_at, dev_base_url, prod_base_url, config_json, status, config_hash) VALUES ('s','d','p',?,'complete',?)`;
+  raw.query(insertRun).run(config, "hash-over-the-values");
+  raw.query(insertRun).run("{}", "hash-of-nothing-secret");
+  raw.query(`INSERT INTO snapshot (created_at, prod_base_url, viewports_json, stabilize_json, config_json) VALUES ('t','p','[]','{}',?)`).run(config);
+  raw.close();
+  const inFiles = (needle: string) => [file, `${file}-wal`].some((f) => existsSync(f) && readFileSync(f).includes(needle));
+  expect(inFiles("s3cret-token-value")).toBe(true);
+  expect(inFiles(long.slice(0, 200))).toBe(true);
+
+  const db = openDb(file);
+  expect(userVersion(db)).toBe(LATEST_VERSION);
+  const runs = db.query("SELECT config_json, config_hash FROM runs ORDER BY id").all() as Array<{ config_json: string; config_hash: string | null }>;
+  const snap = db.query("SELECT config_json FROM snapshot").get() as { config_json: string };
+  const redacted = { "CF-Access-Client-Secret": "[redacted]", Cookie: "[redacted]" };
+  expect(JSON.parse(runs[0]!.config_json).requestHeaders).toEqual(redacted);
+  expect(JSON.parse(snap.config_json).requestHeaders).toEqual(redacted);
+  // The old hash covered the values; next to the scrubbed config it would
+  // let a short token be guessed offline. A run that had none keeps its hash.
+  expect(runs[0]!.config_hash).toBeNull();
+  expect(runs[1]).toEqual({ config_json: "{}", config_hash: "hash-of-nothing-secret" });
+  // An UPDATE alone leaves the old bytes in freed space and the WAL. The
+  // step zeroes what it replaces and the migration checkpoints, so no copy
+  // survives in any file: already while the database is open, and after.
+  expect(inFiles("s3cret-token-value")).toBe(false);
+  expect(inFiles(long.slice(0, 200))).toBe(false);
+  expect(inFiles("k9k9k9k9k9k9k9k9")).toBe(false);
+  expect((db.query("PRAGMA secure_delete").get() as { secure_delete: number }).secure_delete).toBe(
+    (new Database(":memory:").query("PRAGMA secure_delete").get() as { secure_delete: number }).secure_delete); // put back as it was
+  db.close();
+  expect(inFiles("s3cret-token-value")).toBe(false);
+  expect(inFiles("k9k9k9k9k9k9k9k9")).toBe(false);
 });

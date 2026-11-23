@@ -210,7 +210,9 @@ v2 keys the image tables on `target_id`
 ([ADR-0021](adr/0021-targets-and-source-provenance.md)), v3 adds run history,
 v4 prod setup identity, v5 RFC-0006's columns (per-side sizes, regions,
 instability, retries, rendering), v6 the baseline's engine version, v7 the
-unloaded-image columns.
+unloaded-image columns, and it replaces any `requestHeaders` values an older
+momus stored in `config_json`
+([ADR-0045](adr/0045-request-headers-are-redacted.md)).
 
 | Table | Rows | Purpose |
 | --- | --- | --- |
@@ -239,7 +241,7 @@ built-in defaults**.
 | `dev`, `prod` | Base URLs. Discovery always runs against `prod`. |
 | `browser` | `chromium` (default) \| `firefox` \| `webkit`. Gated against the baseline. |
 | `insecure` | Ignore invalid/self-signed TLS on **both** surfaces (discovery fetch and browser navigation). Off by default. |
-| `requestHeaders` | Sent on discovery fetches and page loads (e.g. CF Access headers). |
+| `requestHeaders` | Sent on discovery fetches and page loads (e.g. CF Access headers). Names are stored, values never. |
 | `discovery` | `urlList`, `sitemap`, `maxPages` (0 = unlimited), `crawl` (bool or object, off by default), `include`/`exclude` globs. |
 | `viewports` | Widths; full-page height each. Gated against the baseline. |
 | `stabilize` | `waitUntil`, `settleMs`, `timeoutMs`, `disableAnimations`, `mask`, `remove`, `waitForImages`, `clock`, `reducedMotion`, `colorScheme`. Gated against the baseline. `verify` too, but it isn't gated: it changes no pixels. |

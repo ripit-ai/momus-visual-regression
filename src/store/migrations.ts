@@ -8,11 +8,15 @@ import { existsSync } from "node:fs";
  * because a user's DB may have stopped at any version. `vacuum` asks for a
  * VACUUM after commit (it can't run inside a transaction), for steps that
  * rebuild BLOB-bearing tables and would otherwise leave the old pages behind
- * in the committed file. */
+ * in the committed file. `erases` marks a step that removes data which must
+ * not stay readable in the file: it runs with `secure_delete` on, so the
+ * bytes it replaces are zeroed in the same transaction instead of being left
+ * in freed space. */
 export interface Migration {
   version: number;
-  up: (db: Database) => void;
+  up: (db: Database) => unknown;
   vacuum?: boolean;
+  erases?: boolean;
 }
 
 export class DbTooNewError extends Error {
@@ -244,12 +248,43 @@ function v6(db: Database): void {
   db.exec("ALTER TABLE snapshot ADD COLUMN engine_version TEXT;");
 }
 
-// --- v7: images that didn't load (ADR-0044). NULL on older rows, which
-// render as before.
+/** What v7 writes over a header value. The step's own constant, not the one
+ * the live redaction uses: a released step never changes (ADR-0024). */
+const V7_REDACTED = "[redacted]";
+
+/** `config_json` with its `requestHeaders` values replaced, or null when
+ * there is nothing to replace (no headers, already redacted, or not JSON). */
+export function scrubRequestHeaders(configJson: string): string | null {
+  let config: any;
+  try { config = JSON.parse(configJson); } catch { return null; }
+  const headers = config?.requestHeaders;
+  if (typeof headers !== "object" || headers === null) return null;
+  const names = Object.keys(headers).filter((n) => headers[n] !== V7_REDACTED);
+  if (names.length === 0) return null;
+  for (const n of names) headers[n] = V7_REDACTED;
+  return JSON.stringify(config);
+}
+
+// --- v7: images that didn't load (ADR-0044), and request headers out of the
+// file (ADR-0045). The columns are NULL on older rows, which render as before.
+// Until now config_json held `requestHeaders` values as written, which is
+// where an access token goes: they are replaced in place. A run's config_hash
+// was taken over those values, and next to the scrubbed config it would let a
+// short token be guessed offline, so it is cleared on the same rows. The step
+// is marked `erases`, which is what takes the old bytes out of the file.
 function v7(db: Database): void {
   db.exec("ALTER TABLE baseline_images ADD COLUMN unloaded_images_json TEXT;");
   db.exec("ALTER TABLE comparisons ADD COLUMN dev_unloaded_images_json TEXT;");
   db.exec("ALTER TABLE comparisons ADD COLUMN prod_unloaded_images_json TEXT;");
+  const scrub = (table: string, also: string) => {
+    const rows = db.query(`SELECT id, config_json FROM ${table}`).all() as Array<{ id: number; config_json: string | null }>;
+    for (const row of rows) {
+      const clean = row.config_json === null ? null : scrubRequestHeaders(row.config_json);
+      if (clean !== null) db.query(`UPDATE ${table} SET config_json = ?${also} WHERE id = ?`).run(clean, row.id);
+    }
+  };
+  scrub("runs", ", config_hash = NULL");
+  scrub("snapshot", "");
 }
 
 export const MIGRATIONS: readonly Migration[] = [
@@ -259,7 +294,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 4, up: v4 },
   { version: 5, up: v5 },
   { version: 6, up: v6 },
-  { version: 7, up: v7 },
+  { version: 7, up: v7, erases: true },
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length;
@@ -270,13 +305,22 @@ export function migrate(db: Database, migrations: readonly Migration[] = MIGRATI
   const current = userVersion(db);
   if (current > latest) throw new DbTooNewError(db.filename, current, latest);
   let vacuum = false;
+  let erased = false;
   for (const m of migrations) {
     if (m.version <= current) continue;
-    db.transaction(() => {
-      m.up(db);
-      db.exec(`PRAGMA user_version = ${m.version};`);
-    })();
+    // A pragma can't change inside a transaction, so it brackets the step.
+    const secure = m.erases ? (db.query("PRAGMA secure_delete").get() as { secure_delete: number }).secure_delete : undefined;
+    if (secure !== undefined) db.exec("PRAGMA secure_delete = ON;");
+    try {
+      db.transaction(() => {
+        m.up(db);
+        db.exec(`PRAGMA user_version = ${m.version};`);
+      })();
+    } finally {
+      if (secure !== undefined) db.exec(`PRAGMA secure_delete = ${secure};`);
+    }
     vacuum ||= m.vacuum === true;
+    erased ||= m.erases === true;
   }
   // The .sqlite is the committed artifact: reclaim rebuilt tables' old pages
   // rather than ship the images twice.
@@ -284,6 +328,12 @@ export function migrate(db: Database, migrations: readonly Migration[] = MIGRATI
     // Pruning runs relies on incremental_vacuum, which needs this mode.
     db.exec("PRAGMA auto_vacuum = INCREMENTAL;");
     db.exec("VACUUM;");
+  }
+  if (erased) {
+    // In WAL mode the zeroed pages are in the log and the main file still has
+    // the old ones until a checkpoint. Best-effort: a reader holding the file
+    // open only delays it to the next checkpoint, it doesn't undo the step.
+    try { db.exec("PRAGMA wal_checkpoint(TRUNCATE);"); } catch { /* next checkpoint */ }
   }
 }
 
