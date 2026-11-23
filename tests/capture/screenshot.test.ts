@@ -36,6 +36,8 @@ function fakeRoutingBrowser(handlers: Function[]) {
   return {
     newContext: async () => ({
       newPage: async () => ({
+        on: () => {}, // capture listens for failed image requests (ADR-0046)
+        addInitScript: async () => {}, // and records <img> load errors in the page
         route: async (_pattern: string, handler: Function) => { handlers.push(handler); },
         goto: async () => { throw new Error("stop after route"); },
       }),

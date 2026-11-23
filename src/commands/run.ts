@@ -11,6 +11,7 @@ import { runFlow, type RunFlowResult } from "../pipeline/run-flow";
 import { captureSeams } from "./capture-seams";
 import { exitCodeFor } from "../pipeline/verdict";
 import { writeReport, writeResults } from "../report/report";
+import { hasUnloadedImages, unloadedBaselineWarning } from "../report/summary";
 import type { ResolvedConfig } from "../config/schema";
 import type { ComparisonRecord } from "../types";
 import { scenariosSource } from "../targets/scenarios";
@@ -112,6 +113,8 @@ async function runWithDb(parsed: ParsedCli, config: ResolvedConfig, db: Database
     console.log(failed === 0
       ? `Captured prod baseline (${ok} pages).`
       : `Captured prod baseline (${ok}/${total} pages; ${failed} failed).`);
+    const warning = unloadedBaselineWarning(images, config.retries);
+    if (warning) console.warn(warning);
   } else {
     console.log(`Reused prod baseline from ${result.createdAt}. Refresh with \`momus snapshot\`.`);
   }
@@ -124,6 +127,8 @@ async function runWithDb(parsed: ParsedCli, config: ResolvedConfig, db: Database
  * don't move the exit code: a CI log is otherwise all a reviewer sees. */
 export function resultLine(report: string, runId: number, rows: ComparisonRecord[], code: number): string {
   const unstable = rows.filter((r) => r.status === "unstable").length;
-  const detail = `${rows.length} comparisons${unstable ? `; ${unstable} unstable, not gated` : ""}`;
+  const unloaded = rows.filter(hasUnloadedImages).length;
+  const detail = `${rows.length} comparisons${unstable ? `; ${unstable} unstable, not gated` : ""}` +
+    (unloaded ? `; ${unloaded} with images that did not load` : "");
   return `Wrote ${report} for run #${runId} (${detail}). Exit ${code}.`;
 }

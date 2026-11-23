@@ -1,6 +1,6 @@
 // tests/report/summary.test.ts
 import { test, expect } from "bun:test";
-import { summarize, itemClass } from "../../src/report/summary";
+import { summarize, itemClass, unloadedNotes, unloadedBaselineWarning } from "../../src/report/summary";
 import type { ComparisonRecord } from "../../src/types";
 
 function ok(path: string, vp: number, score: number, passed: boolean): ComparisonRecord {
@@ -90,4 +90,39 @@ test("unstable rows are counted apart and never fail the verdict", () => {
   expect(s.failed).toBe(0);
   expect(s.verdict).toBe("PASS");
   expect(itemClass({ ...ok("/b", 1, 0.5, false), status: "unstable" })).toBe("unstable");
+});
+
+test("comparisons with unloaded images are counted, and keep their outcome", () => {
+  const holed = { ...ok("/a", 1, 0, true), devUnloadedImages: [{ url: "u", state: "failed" as const }] };
+  const s = summarize([holed, ok("/b", 1, 0, true), { ...ok("/c", 1, 0, true), prodUnloadedImages: [] }]);
+  expect(s.unloaded).toBe(1);
+  expect(s.passed).toBe(3);
+  expect(s.verdict).toBe("PASS");
+});
+
+test("unloadedNotes names each side's images and why, and caps the list at three", () => {
+  expect(unloadedNotes(ok("/a", 1, 0, true))).toEqual([]);
+  const urls = ["a", "b", "c", "d", "e"].map((n) => ({ url: `https://x/${n}.jpg`, state: "failed" as const }));
+  const notes = unloadedNotes({
+    ...ok("/a", 1, 0, true),
+    devUnloadedImages: [{ url: "https://x/late.jpg", state: "pending" }],
+    prodUnloadedImages: [{ ...urls[0]!, detail: "HTTP 504" }, ...urls.slice(1)],
+  });
+  expect(notes).toEqual([
+    "dev was captured without 1 image: https://x/late.jpg (still loading).",
+    "prod was captured without 5 images: https://x/a.jpg (HTTP 504), https://x/b.jpg (failed to load), " +
+      "https://x/c.jpg (failed to load), and 2 more.",
+  ]);
+});
+
+test("a baseline frozen with unloaded images is warned about", () => {
+  expect(unloadedBaselineWarning([{}, { unloadedImages: [] }], 0)).toBeNull();
+  const one = unloadedBaselineWarning([{}, { unloadedImages: [{}] }], 0)!;
+  expect(one).toContain("1 baseline capture has images that did not load.");
+  expect(one).toContain("momus snapshot");
+  expect(one).toContain("set `retries`");
+  // With retries configured they were already spent: say so, and don't suggest them.
+  const spent = unloadedBaselineWarning([{ unloadedImages: [{}] }, { unloadedImages: [{}, {}] }], 2)!;
+  expect(spent).toContain("2 baseline captures have images that did not load, after 2 retries.");
+  expect(spent).not.toContain("set `retries`");
 });

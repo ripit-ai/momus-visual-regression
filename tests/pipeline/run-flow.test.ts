@@ -596,3 +596,22 @@ test("a materialized baseline records the engine version, and another version co
   expect(res.ok).toBe(false);
   expect(!res.ok && res.conflict).toContain("engine version");
 });
+
+test("a baseline image's unloaded images arrive on the prod side of every later comparison (ADR-0046)", async () => {
+  const db = openDb(":memory:");
+  const missing = [{ url: "https://img.example.com/hero.jpg", state: "failed" as const, detail: "HTTP 504" }];
+  const args = {
+    config: cfg(), db, discover: async () => ["/", "/whole"],
+    captureProd: async (url: string) => ({ ok: true, png: png(100), ...(url.endsWith("/whole") ? {} : { unloadedImages: missing }) }),
+    getDev: async () => ({ ok: true, png: png(100) }),
+    diffPool,
+  };
+  await runFlow({ ...args, now: "2026-07-04T10:00:00Z" }); // materializes
+  await runFlow({ ...args, now: "2026-07-05T10:00:00Z" }); // reuses the frozen baseline
+  for (const runId of listRunIds(db)) {
+    const rows = new Map(readComparisons(db, runId).map((r) => [r.path, r]));
+    expect(rows.get("/")!.prodUnloadedImages).toEqual(missing);
+    expect(rows.get("/")!.devUnloadedImages).toBeUndefined();
+    expect(rows.get("/whole")!.prodUnloadedImages).toBeUndefined();
+  }
+});

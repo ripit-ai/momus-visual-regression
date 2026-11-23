@@ -57,6 +57,7 @@ For how the system fits together today, see [architecture.md](../architecture.md
 | [0043](0043-json-results-document.md) | `--json FILE` writes a versioned results document | 2026-11-16 |
 | [0044](0044-block-hosts.md) | `stabilize.blockHosts` aborts requests to listed hosts, and is gated | 2026-11-20 |
 | [0045](0045-request-headers-are-redacted.md) | `requestHeaders` values are never stored, and v7 removes the ones that were | 2026-11-21 |
+| [0046](0046-unloaded-images-are-a-warning.md) | Images that didn't load are a warning on the capture; `retries` re-captures the baseline for them | 2026-11-21 |
 
 ## Open questions
 

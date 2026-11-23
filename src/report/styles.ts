@@ -35,7 +35,9 @@ export const STYLES = `
   .badge.gone { background: #555; color: #eee; }
   .badge.unstable { background: #5a3e8c; color: #eadcff; }
   .item .regions, .item .retries { color: #aaa; font-size: .8rem; }
+  .item .unloaded { color: #ffcf66; font-size: .8rem; }
   .note { color: #d8b4fe; padding: 0 1.5rem .5rem; }
+  .note.warn { color: #ffcf66; overflow-wrap: anywhere; }
   .viewer { padding: 0 1.5rem 1rem; }
   .modes { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; margin-bottom: .5rem; }
   .modes .mix-l, .modes .mix-r { color: #888; font-size: .75rem; }

@@ -1,6 +1,6 @@
 // src/report/template.ts
 import type { ComparisonRecord, Region } from "../types";
-import { summarize, itemClass, dimensionNote } from "./summary";
+import { summarize, itemClass, dimensionNote, unloadedNotes } from "./summary";
 import { STRICT_GATE, type GateOptions } from "../pipeline/verdict";
 import { embedImages, type ImageRef, type ImageSide, type ImageSource } from "./images";
 import { STYLES } from "./styles";
@@ -79,6 +79,19 @@ function opening(r: ComparisonRecord): string {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** Which images a side was captured without, and what to do about it. On
+ * every kind of row: a missing image explains a failure, and on a pass it is
+ * still something the reviewer was not shown (ADR-0046). */
+function unloadedWarning(r: ComparisonRecord): string {
+  const lines = unloadedNotes(r);
+  if (lines.length === 0) return "";
+  const advice = r.status === "added" || r.status === "removed"
+    ? ""
+    : " A difference here may be a missing image, not a change." +
+      (r.prodUnloadedImages?.length ? " prod is the frozen baseline: re-capture it with momus snapshot." : "");
+  return `\n  <div class="note warn">${lines.map(esc).join(" ")}${advice}</div>`;
+}
+
 /** One comparison as a collapsed accordion. */
 function item(r: ComparisonRecord, images: ImageSource): string {
   if (r.status === "error") {
@@ -89,7 +102,7 @@ function item(r: ComparisonRecord, images: ImageSource): string {
     ].join("");
     return `${opening(r)}
   <summary><span class="badge err">ERROR</span> <span class="path">${name(r)}</span>${vp(r)}</summary>
-  <div class="msg">${esc(r.error ?? "unknown error")}</div>${sides ? `\n  <div class="single">${sides}</div>` : ""}
+  <div class="msg">${esc(r.error ?? "unknown error")}</div>${unloadedWarning(r)}${sides ? `\n  <div class="single">${sides}</div>` : ""}
 </details>`;
   }
   if (r.status === "added" || r.status === "removed") {
@@ -101,7 +114,7 @@ function item(r: ComparisonRecord, images: ImageSource): string {
       ? `<figure><figcaption>${caption}</figcaption>${linkFull(`<img src="${esc(img.src)}" alt="${r.status}">`, img)}</figure>`
       : `<div class="msg">${esc(r.error ?? "no image captured")}</div>`;
     return `${opening(r)}
-  <summary>${badge} <span class="path">${name(r)}</span>${vp(r)}</summary>
+  <summary>${badge} <span class="path">${name(r)}</span>${vp(r)}</summary>${unloadedWarning(r)}
   <div class="single">${body}</div>
 </details>`;
   }
@@ -110,6 +123,8 @@ function item(r: ComparisonRecord, images: ImageSource): string {
   const score = ((r.diffScore ?? 0) * 100).toFixed(2);
   const regions = r.regionCount ? ` <span class="regions">${plural(r.regionCount, "region", "regions")}</span>` : "";
   const retries = r.retries ? ` <span class="retries">${plural(r.retries, "retry", "retries")}</span>` : "";
+  const missing = (r.devUnloadedImages?.length ?? 0) + (r.prodUnloadedImages?.length ?? 0);
+  const unloaded = missing ? ` <span class="unloaded">${plural(missing, "image", "images")} not loaded</span>` : "";
   const dims = dimensionNote(r);
   const notes = [
     dims ? `${esc(dims)}. The magenta band is where only one side has pixels.` : "",
@@ -119,7 +134,7 @@ function item(r: ComparisonRecord, images: ImageSource): string {
       : "",
   ].filter(Boolean).map((n) => `\n  <div class="note">${n}</div>`).join("");
   return `${opening(r)}
-  <summary>${badge} <span class="path">${name(r)}</span>${vp(r)}${regions}${retries} <span class="score">${score}%</span></summary>${notes}
+  <summary>${badge} <span class="path">${name(r)}</span>${vp(r)}${regions}${retries}${unloaded} <span class="score">${score}%</span></summary>${unloadedWarning(r)}${notes}
   ${viewer(r, figure(images, r, "dev", r.devWidth, r.devHeight) +
     figure(images, r, "prod", r.prodWidth, r.prodHeight) + figure(images, r, "diff", r.width, r.height))}
 </details>`;
@@ -161,9 +176,10 @@ function filters(records: ComparisonRecord[], viewports: number[]): string {
 }
 
 /** Only shown when present, so a pages-only report reads exactly as before. */
-function changes(s: { added: number; removed: number; unstable: number }): string {
+function changes(s: { added: number; removed: number; unstable: number; unloaded: number }): string {
   return (s.added ? ` · ${s.added} added` : "") + (s.removed ? ` · ${s.removed} removed` : "") +
-    (s.unstable ? ` · ${s.unstable} unstable` : "");
+    (s.unstable ? ` · ${s.unstable} unstable` : "") +
+    (s.unloaded ? ` · ${s.unloaded} with images not loaded` : "");
 }
 
 export function renderReport(
