@@ -80,6 +80,14 @@ counted. A change elsewhere is gated as usual. `retries` re-captures dev for a
 compared target that fails the gate; prod is frozen, so a baseline error is
 never retried ([ADR-0034](adr/0034-unstable-and-retries.md)).
 
+`capture()` also returns the rendered images that weren't there for the
+screenshot (`unloadedImages`: failed, or still pending at the timeout). They
+ride along as a warning on the baseline image and on each comparison's dev and
+prod side, are shown in the report, the CLI summary and `--json`, and never
+change a status or the gate. At baseline capture, `retries` re-captures such a
+target and keeps the capture with the fewest
+([ADR-0046](adr/0046-unloaded-images-are-a-warning.md)).
+
 ## Pipeline
 
 ```text
@@ -204,14 +212,15 @@ v2 keys the image tables on `target_id`
 v4 prod setup identity, v5 RFC-0006's columns (per-side sizes, regions,
 instability, retries, rendering), v6 the baseline's engine version, and v7
 replaces any `requestHeaders` values an older momus stored in `config_json`
-([ADR-0045](adr/0045-request-headers-are-redacted.md)).
+([ADR-0045](adr/0045-request-headers-are-redacted.md)), v8 the unloaded-image
+columns.
 
 | Table | Rows | Purpose |
 | --- | --- | --- |
 | `runs` | one per kept run (`output.keepRuns`, default 5) | AUTOINCREMENT ids. Timestamps, dev/prod base URLs, resolved config JSON, status; provenance: momus version, engine + version, config hash, baseline id + identity, allow flags, CI commit/branch/PR. |
-| `comparisons` | one per `target × viewport` | `target_id`, `source`, `label`, dev/prod/diff PNG BLOBs, padded dimensions and each side's own (`dev_width`…`prod_height`), `diff_pixels`, `diff_score`, `fail_score` (the gate that applied), `passed`, `status` (`ok`/`error`/`added`/`removed`/`unstable`), `error`, `regions_json` (largest 100) + `region_count`, `unstable_regions_json`, `retries`. Unique on `(run_id, target_id, viewport)`. |
+| `comparisons` | one per `target × viewport` | `target_id`, `source`, `label`, dev/prod/diff PNG BLOBs, padded dimensions and each side's own (`dev_width`…`prod_height`), `diff_pixels`, `diff_score`, `fail_score` (the gate that applied), `passed`, `status` (`ok`/`error`/`added`/`removed`/`unstable`), `error`, `regions_json` (largest 100) + `region_count`, `unstable_regions_json`, `retries`, `dev_unloaded_images_json` / `prod_unloaded_images_json` (NULL = every image loaded, or a row from before v7). Unique on `(run_id, target_id, viewport)`. |
 | `snapshot` | one; id never reused | The baseline's identity: `created_at`, `prod_base_url`, `viewports_json`, `stabilize_json`, `browser`, `setup_json` (prod's redacted setup; NULL = none), `rendering` (`pinned`/`host`; NULL = host), `engine_version` (NULL = recorded before v6), full `config_json` (credentials redacted). Drives the compatibility gate and report provenance. |
-| `baseline_images` | one per `target × viewport` | `target_id`, `source`, `label`, `recipe_json` (canonical, sorted keys; NULL = no recipe), frozen prod PNG BLOBs plus `status`/`error`, `unstable_regions_json` (NULL = stable or unverified). Unique on `(target_id, viewport)`. |
+| `baseline_images` | one per `target × viewport` | `target_id`, `source`, `label`, `recipe_json` (canonical, sorted keys; NULL = no recipe), frozen prod PNG BLOBs plus `status`/`error`, `unstable_regions_json` (NULL = stable or unverified), `unloaded_images_json` (NULL = every image loaded). Unique on `(target_id, viewport)`. |
 
 `run` inserts a run, then prunes to the newest `output.keepRuns` (0 = keep all)
 and runs `incremental_vacuum`. Each run owns its images outright — no

@@ -126,7 +126,7 @@ export async function runFlow(args: RunFlowArgs): Promise<RunFlowResult> {
       const im = byKey.get(`${job.targetId ?? job.path} ${job.viewport}`);
       if (!im) return { ok: false, error: "no baseline image for this target" };
       return im.status === "ok" && im.image
-        ? { ok: true, png: im.image, unstableRegions: im.unstableRegions }
+        ? { ok: true, png: im.image, unstableRegions: im.unstableRegions, unloadedImages: im.unloadedImages }
         : { ok: false, error: im.error ?? "prod capture failed in snapshot" };
     },
     diffPool: args.diffPool,

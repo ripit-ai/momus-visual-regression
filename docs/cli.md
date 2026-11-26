@@ -138,7 +138,7 @@ Schema is [results.schema.json](results.schema.json).
   "schemaVersion": 1,
   "momusVersion": "1.1.0",
   "verdict": "FAIL",
-  "summary": { "total": 4, "passed": 3, "failed": 1, "errored": 0, "added": 0, "removed": 0, "unstable": 0 },
+  "summary": { "total": 4, "passed": 3, "failed": 1, "errored": 0, "added": 0, "removed": 0, "unstable": 0, "unloaded": 1 },
   "gate": { "allowAdded": false, "allowRemoved": false },
   "run": { "id": 7, "status": "complete", "devBaseUrl": "https://dev.example.com", "ci": { "commit": "a1b2c3", "branch": null, "pr": "42" }, "…": "…" },
   "baseline": { "id": 3, "createdAt": "2026-11-15T03:00:00.000Z", "viewports": [375, 1280], "…": "…" },
@@ -148,7 +148,11 @@ Schema is [results.schema.json](results.schema.json).
       "status": "ok", "outcome": "fail", "failsGate": true,
       "diffScore": 0.0106, "failScore": 0.01,
       "dev": { "url": "https://dev.example.com/about", "width": 375, "height": 900,
-               "image": { "sha256": "9f2c…", "bytes": 48213, "file": "momus-report-images/0001-dev.png" } },
+               "image": { "sha256": "9f2c…", "bytes": 48213, "file": "momus-report-images/0001-dev.png" },
+               "unloadedImages": [] },
+      "prod": { "url": "https://www.example.com/about", "width": 375, "height": 900,
+                "image": { "sha256": "41d0…", "bytes": 47902, "file": "momus-report-images/0001-prod.png" },
+                "unloadedImages": [{ "url": "https://img.example.com/hero.jpg", "state": "failed", "detail": "HTTP 504" }] },
       "regions": [{ "x": 8, "y": 15, "width": 230, "height": 69 }], "regionCount": 2,
       "error": null,
       "…": "…"
@@ -169,6 +173,11 @@ Schema is [results.schema.json](results.schema.json).
   report wrote it to disk (`--report-images link` or `thumbnails`), relative to
   the working directory unless `output.report` is absolute. With `embed` it is
   `null`.
+- **`unloadedImages`** on a side lists the images it was captured without:
+  `failed`, or `pending` (still loading at `stabilize.timeoutMs`), with the
+  network's reason in `detail` when there was one. It is a warning: `outcome`
+  and `failsGate` don't depend on it. `summary.unloaded` counts the comparisons
+  that have any ([config.md](config.md#images-that-didnt-load)).
 - New fields may appear in any 1.x release. Ignore keys you don't know.
 
 ## Exit codes
@@ -188,6 +197,7 @@ contract ([stability.md](stability.md)).
 While capturing and diffing, momus renders a progress bar to **stderr**: one
 phase for prod capture (on a fresh baseline) and one for dev capture and diff.
 In a non-TTY environment (CI, piped output) it prints a plain progress line
-periodically instead of redrawing. stdout carries only the final summary, so
+periodically instead of redrawing. A baseline frozen with images that didn't
+load is warned about on stderr too. stdout carries only the final summary, so
 piping stdout to a file stays clean. Neither the progress output nor the log
 text is part of the stability contract.

@@ -53,6 +53,11 @@
           "type": "integer",
           "minimum": -9007199254740991,
           "maximum": 9007199254740991
+        },
+        "unloaded": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
         }
       },
       "required": [
@@ -62,7 +67,8 @@
         "errored",
         "added",
         "removed",
-        "unstable"
+        "unstable",
+        "unloaded"
       ]
     },
     "gate": {
@@ -380,13 +386,43 @@
                     "type": "null"
                   }
                 ]
+              },
+              "unloadedImages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "failed",
+                        "pending"
+                      ]
+                    },
+                    "detail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "url",
+                    "state",
+                    "detail"
+                  ]
+                }
               }
             },
             "required": [
               "url",
               "width",
               "height",
-              "image"
+              "image",
+              "unloadedImages"
             ]
           },
           "prod": {
@@ -449,13 +485,43 @@
                     "type": "null"
                   }
                 ]
+              },
+              "unloadedImages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "failed",
+                        "pending"
+                      ]
+                    },
+                    "detail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "url",
+                    "state",
+                    "detail"
+                  ]
+                }
               }
             },
             "required": [
               "url",
               "width",
               "height",
-              "image"
+              "image",
+              "unloadedImages"
             ]
           },
           "diff": {

@@ -185,7 +185,6 @@ test("v7 removes request header values an older momus stored, from the rows and 
   expect(inFiles(long.slice(0, 200))).toBe(true);
 
   const db = openDb(file);
-  expect(LATEST_VERSION).toBe(7);
   expect(userVersion(db)).toBe(LATEST_VERSION);
   const runs = db.query("SELECT config_json, config_hash FROM runs ORDER BY id").all() as Array<{ config_json: string; config_hash: string | null }>;
   const snap = db.query("SELECT config_json FROM snapshot").get() as { config_json: string };
@@ -207,4 +206,13 @@ test("v7 removes request header values an older momus stored, from the rows and 
   db.close();
   expect(inFiles("s3cret-token-value")).toBe(false);
   expect(inFiles("k9k9k9k9k9k9k9k9")).toBe(false);
+});
+
+test("v8 adds the unloaded-image columns", () => {
+  const db = openDb(":memory:");
+  expect(LATEST_VERSION).toBe(8);
+  const cols = (t: string) => (db.query(`PRAGMA table_info(${t})`).all() as Array<{ name: string }>).map((c) => c.name);
+  expect(cols("baseline_images")).toContain("unloaded_images_json");
+  expect(cols("comparisons")).toContain("dev_unloaded_images_json");
+  expect(cols("comparisons")).toContain("prod_unloaded_images_json");
 });

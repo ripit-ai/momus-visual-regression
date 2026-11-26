@@ -1,6 +1,6 @@
 // src/store/db.ts
 import { Database } from "bun:sqlite";
-import type { ComparisonRecord, Region } from "../types";
+import type { ComparisonRecord, Region, UnloadedImage } from "../types";
 import type { StabilizeOptions } from "../capture/screenshot";
 import type { BrowserEngine, Rendering } from "../capture/browser";
 import type { TargetSourceName } from "../targets/target";
@@ -33,6 +33,9 @@ export interface StartRunArgs {
 const boolOrNull = (b: boolean | undefined) => (b === undefined ? null : b ? 1 : 0);
 const regionsJson = (r: Region[] | undefined) => (r === undefined ? null : JSON.stringify(r));
 const parseRegions = (s: string | null): Region[] | undefined => (s === null ? undefined : JSON.parse(s));
+// NULL = every image loaded, or a row from before v8; an empty list is never stored.
+const unloadedJson = (u: UnloadedImage[] | undefined) => (u === undefined || u.length === 0 ? null : JSON.stringify(u));
+const parseUnloaded = (s: string | null | undefined): UnloadedImage[] | undefined => (s == null ? undefined : JSON.parse(s));
 
 export function startRun(db: Database, a: StartRunArgs): number {
   const res = db.query(
@@ -106,8 +109,9 @@ export function saveComparison(db: Database, runId: number, r: ComparisonRecord)
     `INSERT OR REPLACE INTO comparisons
      (run_id, target_id, source, label, path, viewport, dev_url, prod_url, dev_image, prod_image, diff_image,
       width, height, diff_pixels, diff_score, fail_score, passed, status, error,
-      dev_width, dev_height, prod_width, prod_height, regions_json, region_count, unstable_regions_json, retries)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      dev_width, dev_height, prod_width, prod_height, regions_json, region_count, unstable_regions_json, retries,
+      dev_unloaded_images_json, prod_unloaded_images_json)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   ).run(
     runId, r.targetId ?? r.path, r.source ?? "pages", r.label ?? r.path,
     r.path, r.viewport, r.devUrl, r.prodUrl,
@@ -116,6 +120,7 @@ export function saveComparison(db: Database, runId: number, r: ComparisonRecord)
     r.passed === undefined ? null : (r.passed ? 1 : 0), r.status, r.error ?? null,
     r.devWidth ?? null, r.devHeight ?? null, r.prodWidth ?? null, r.prodHeight ?? null,
     regionsJson(r.regions), r.regionCount ?? null, regionsJson(r.unstableRegions), r.retries ?? null,
+    unloadedJson(r.devUnloadedImages), unloadedJson(r.prodUnloadedImages),
   );
 }
 
@@ -145,6 +150,8 @@ export function readComparisons(db: Database, runId: number): ComparisonRow[] {
     prodWidth: x.prod_width ?? undefined, prodHeight: x.prod_height ?? undefined,
     regions: parseRegions(x.regions_json), regionCount: x.region_count ?? undefined,
     unstableRegions: parseRegions(x.unstable_regions_json), retries: x.retries ?? undefined,
+    devUnloadedImages: parseUnloaded(x.dev_unloaded_images_json),
+    prodUnloadedImages: parseUnloaded(x.prod_unloaded_images_json),
   }));
 }
 
@@ -208,6 +215,8 @@ export interface BaselineImageRow {
   error?: string;
   /** Set when `stabilize.verify` saw this image change between two captures. */
   unstableRegions?: Region[];
+  /** Images that didn't load when this was captured (ADR-0046). */
+  unloadedImages?: UnloadedImage[];
 }
 
 type Identity = "targetId" | "source" | "label" | "recipeJson";
@@ -218,11 +227,13 @@ export type BaselineImageInput = Omit<BaselineImageRow, Identity> & Partial<Pick
 export function saveBaselineImage(db: Database, r: BaselineImageInput): void {
   db.query(
     `INSERT OR REPLACE INTO baseline_images
-     (target_id, source, label, path, viewport, prod_url, recipe_json, image, status, error, unstable_regions_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (target_id, source, label, path, viewport, prod_url, recipe_json, image, status, error, unstable_regions_json,
+      unloaded_images_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     r.targetId ?? r.path, r.source ?? "pages", r.label ?? r.path, r.path, r.viewport, r.prodUrl,
     r.recipeJson ?? null, r.image ?? null, r.status, r.error ?? null, regionsJson(r.unstableRegions),
+    unloadedJson(r.unloadedImages),
   );
 }
 
@@ -240,6 +251,7 @@ export function readBaselineImages(db: Database): BaselineImageRow[] {
     status: x.status,
     error: x.error ?? undefined,
     unstableRegions: parseRegions(x.unstable_regions_json ?? null),
+    unloadedImages: parseUnloaded(x.unloaded_images_json),
   }));
 }
 

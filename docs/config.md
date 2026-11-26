@@ -48,7 +48,7 @@ export default defineConfig({
     colorScheme: "light",       // emulate prefers-color-scheme: "light" | "dark" | "no-preference"
     verify: false,              // capture each baseline image twice; mark the ones that differ unstable
   },
-  retries: 0,                   // re-capture dev up to N times before failing a target (0-10)
+  retries: 0,                   // re-capture up to N times (0-10): dev before failing a target, prod while images didn't load
 
   diff: {
     threshold: 0.1,   // per-pixel color sensitivity (pixelmatch)
@@ -240,11 +240,66 @@ a config error.
 
 | Field | Default | Description |
 | --- | --- | --- |
-| `retries` | `0` | Re-capture dev up to N times (0–10) for a target that failed the gate or errored. Not gated. |
+| `retries` | `0` | Re-capture dev up to N times (0–10) for a target that failed the gate or errored, and re-capture a baseline image up to N times while it has [images that didn't load](#images-that-didnt-load) (failed or pending). Not gated. |
 
 A target fails only if every attempt fails. The report shows how many retries a
 target needed, so flakiness stays visible. A prod error from the baseline is
 never retried: the baseline is frozen.
+
+Setting `retries` therefore also costs prod captures at snapshot time: up to N
+more for each baseline image with images that didn't load, including one that
+never will. Mask the element (`stabilize.mask`) if that is permanent.
+
+While the baseline is being captured (`momus snapshot`, or the first `momus
+run`), a capture with [images that didn't load](#images-that-didnt-load) is
+taken again, up to `retries` times, and the one with the fewest is kept. This is
+the only point at which prod is captured, so it is the only chance to fix a
+baseline with a hole in it.
+
+### Images that didn't load
+
+A capture succeeds even when an image on the page doesn't arrive: the browser
+draws nothing where it should be, and the screenshot looks fine. momus records
+those images on the capture and shows them wherever the comparison is shown:
+
+- **failed**: the request errored (an HTTP status of 400 or more, a refused or
+  dropped connection) or the response wasn't an image. This includes an image
+  the page then replaced with a placeholder: the entry says what took its
+  place ("replaced by the page with …"). A page that retries under a different
+  URL is reported the same way, since momus can't tell a retry from a
+  placeholder.
+- **pending**: its request was still unanswered when `stabilize.timeoutMs` ran
+  out. Reported only with `stabilize.waitForImages` on. A lazy image the
+  browser never requested is not pending.
+
+It covers rendered `<img>` elements, CSS background images and `<video>`
+posters. Images that can't affect the pixels are left out: not rendered, hidden
+by `stabilize.mask`, removed by `stabilize.remove`, or declared 1×1 or smaller
+(tracking beacons). With a scenario's `capture.element`, only that element and
+the images inside it count. The first 20 found are kept per capture.
+
+What it does not see:
+
+- an image the page removes or hides when it fails;
+- images inside shadow roots and iframes;
+- CSS images other than an element's `background-image` (pseudo-elements,
+  `border-image`, `mask-image`, `content: url()`) and SVG `<image>`.
+
+It can also name an image whose absence changes nothing: one that is rendered
+but invisible (`opacity: 0`, clipped, off-canvas).
+
+The URL of each such image is stored in the `.sqlite`, the report and
+`--json`, query string included (cut at 500 characters). If your image URLs
+are signed, treat those files as you treat the URLs.
+
+This is a warning, never an outcome: the comparison keeps its status, score and
+place in the gate, and the exit code doesn't change. The report marks the row
+("2 images not loaded") and names the images and the side; `run` and `snapshot`
+say how many comparisons or baseline captures are affected; and `--json` lists
+them per side as `unloadedImages`
+([ADR-0046](adr/0046-unloaded-images-are-a-warning.md)). When prod is the side
+with the hole, re-capture the baseline: a diff against it shows the missing
+image, not a change.
 
 ## Diff
 

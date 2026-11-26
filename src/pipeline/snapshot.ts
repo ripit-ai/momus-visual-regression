@@ -57,6 +57,28 @@ async function verifyCapture(
   }
 }
 
+/** `retries` at baseline capture: while a capture has images that didn't
+ * load, capture it again, up to `retries` times, and keep the one with the
+ * fewest. A failed image is usually a slow or cold image host, and once the
+ * baseline is frozen nothing re-captures prod, so this is the only chance to
+ * get it right. A retry that fails outright is ignored: the capture in hand
+ * is worth more than an error (ADR-0046). */
+async function captureLoaded(
+  args: SnapshotPipelineArgs, url: string, viewport: number, recipe?: Recipe,
+): Promise<CaptureResult> {
+  let best = await args.captureFn(url, viewport, args.config, recipe);
+  for (let attempt = 0; attempt < args.config.retries && best.ok && best.unloadedImages?.length; attempt++) {
+    let again: CaptureResult;
+    try {
+      again = await args.captureFn(url, viewport, args.config, recipe);
+    } catch {
+      continue; // as an { ok: false } retry: the capture in hand stands
+    }
+    if (again.ok && (again.unloadedImages?.length ?? 0) < best.unloadedImages.length) best = again;
+  }
+  return best;
+}
+
 /** Every prod capture failed, so there is nothing worth freezing. Thrown after
  * the baseline replacement is rolled back; the commands exit 2 with this
  * message (RFC-0002, ADR-0027). */
@@ -105,7 +127,7 @@ export async function snapshotPipeline(args: SnapshotPipelineArgs): Promise<void
       if (thrown) { args.progress?.tick(); return; }
       try {
         // capture() never throws; on failure it returns { ok:false, error }.
-        const res = await args.captureFn(target.url.prod, viewport, config, target.recipe);
+        const res = await captureLoaded(args, target.url.prod, viewport, target.recipe);
         if (!res.ok) { failed++; firstError ||= res.error ?? "unknown error"; }
         const unstableRegions = res.ok && config.stabilize.verify
           ? await verifyCapture(args, res.png!, target.url.prod, viewport, target.recipe)
@@ -117,6 +139,7 @@ export async function snapshotPipeline(args: SnapshotPipelineArgs): Promise<void
           status: res.ok ? "ok" : "error",
           error: res.ok ? undefined : res.error,
           unstableRegions,
+          unloadedImages: res.ok ? res.unloadedImages : undefined,
         });
       } catch (error) {
         thrown ??= { error };

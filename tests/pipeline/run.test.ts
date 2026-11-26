@@ -586,3 +586,29 @@ test("the stored run config holds header names, not values", async () => {
   expect(stored).not.toContain("s3cret");
   expect(stored).toContain("CF-Access-Client-Secret");
 });
+
+// --- ADR-0046: images that didn't load ---
+
+const missing = [{ url: "https://img.example.com/hero.jpg", state: "failed" as const, detail: "HTTP 504" }];
+
+test("unloaded images on either side are stored on the comparison, whatever its outcome", async () => {
+  const config = ConfigSchema.parse({ dev: "https://dev.example.com", prod: "https://www.example.com", viewports: [1280] });
+  const db = openDb(":memory:");
+  const runId = await runPipeline({
+    config, db, startedAt: "t", listJobs: async () => jobs(["/a", "/b", "/c"], [1280]),
+    getDev: async (job) => job.path === "/c"
+      ? { ok: false, error: "boom" }
+      : { ok: true, png: png(4, 4, 100), ...(job.path === "/a" ? { unloadedImages: missing } : {}) },
+    getProd: async (job) => ({ ok: true, png: png(4, 4, 100), ...(job.path !== "/a" ? { unloadedImages: missing } : {}) }),
+    diffPool: { submit: async (a) => okDiff(a), close: async () => {} },
+  });
+  const rows = new Map(readComparisons(db, runId).map((r) => [r.path, r]));
+  expect(rows.get("/a")!.devUnloadedImages).toEqual(missing);
+  expect(rows.get("/a")!.prodUnloadedImages).toBeUndefined();
+  expect(rows.get("/b")!.prodUnloadedImages).toEqual(missing);
+  expect(rows.get("/b")!.status).toBe("ok");     // a warning, never an outcome
+  expect(rows.get("/b")!.passed).toBe(true);
+  expect(rows.get("/c")!.status).toBe("error");  // the side that rendered still says what it lacked
+  expect(rows.get("/c")!.prodUnloadedImages).toEqual(missing);
+  expect(exitCodeFor([rows.get("/a")!, rows.get("/b")!])).toBe(0);
+});
