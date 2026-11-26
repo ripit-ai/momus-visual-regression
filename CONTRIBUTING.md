@@ -110,10 +110,7 @@ Before tagging:
    it says "Nothing." A release that changes the browser engine version says
    so under `Changed`: it forces every user to re-capture their baseline
    ([ADR-0038](docs/adr/0038-engine-version-in-the-gate.md)).
-2. **Version.** Bump `version` in `package.json` and commit it. Every run
-   records that version, and the release workflow refuses a tag that doesn't
-   match it.
-3. **Compatibility fixture** (each 1.x minor release, from 1.0.0 on). Capture a
+2. **Compatibility fixture** (each 1.x minor release, from 1.0.0 on). Capture a
    DB with the released build and check it in as
    `tests/fixtures/db/vX.Y.0.sqlite` with its `vX.Y.0.config.json`; see
    [tests/fixtures/db/README.md](tests/fixtures/db/README.md). CI diffs every
@@ -126,14 +123,18 @@ git tag v0.1.0
 git push origin v0.1.0   # triggers the release workflow
 ```
 
-The tag name becomes the release name and the image version.
+The tag name becomes the release name and the image version. There is no
+version bump to commit: the workflow writes the tag's version into
+`package.json` before testing and building, so every run the image makes
+records it ([ADR-0047](docs/adr/0047-version-stamped-from-tag.md)). The
+`package.json` in the repo isn't kept in step. A tag that isn't
+`vMAJOR.MINOR.PATCH[-PRERELEASE]` fails the release.
 
 **Pre-releases.** A tag with a SemVer pre-release identifier — a hyphen after
 the version core, as in `v1.0.0-rc.1` or `v0.9.0-beta.2` — is published as a
 GitHub pre-release, and its image is pushed as `:1.0.0-rc.1` only; `:latest`
-stays on the newest stable release. The `package.json` version must carry the
-same identifier (`"version": "1.0.0-rc.1"`). Build metadata alone
-(`v1.0.0+build.7`) is not a pre-release.
+stays on the newest stable release. Build metadata (`v1.0.0+build.7`) isn't
+accepted in a tag.
 
 **Required repository secrets** (Settings → Secrets and variables → Actions) for
 the Docker publish:

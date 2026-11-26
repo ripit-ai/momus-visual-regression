@@ -31,10 +31,20 @@ jobs:
           bun-version: "1.4.3"
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      # Runs record momus's version from package.json (RFC-0002), so a tag that
-      # disagrees with it would stamp every run with the wrong version.
-      - name: Tag matches package.json version
-        run: test "v$(jq -r .version package.json)" = "$GITHUB_REF_NAME"
+      # Runs record momus's version from package.json (RFC-0002). The tag is the
+      # source of truth, so it is written into package.json here and in each
+      # docker build, never committed back (ADR-0047). Refuse a tag that isn't
+      # a version before anything is published under it.
+      - name: Stamp version from tag
+        run: |
+          set -euo pipefail
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-PRERELEASE]"
+            exit 1
+          fi
+          jq --arg v "${GITHUB_REF_NAME#v}" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          echo "momus $(jq -r .version package.json)"
       - name: Type-check
         run: bunx tsc --noEmit
       - name: Test
@@ -94,6 +104,13 @@ jobs:
       IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/momus
     steps:
       - uses: actions/checkout@v4
+
+      # The image runs from source and reads its version from package.json; the
+      # check job has already refused a tag that isn't a version.
+      - name: Stamp version from tag
+        run: |
+          jq --arg v "${GITHUB_REF_NAME#v}" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
 
       - name: Platform slug
         run: echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
