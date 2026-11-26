@@ -4,17 +4,21 @@
 //   git worktree add /tmp/momus-v1.1.0 v1.1.0
 //   ln -s "$PWD/node_modules" /tmp/momus-v1.1.0/node_modules
 //   bun tests/fixtures/db/make-fixture.ts /tmp/momus-v1.1.0 1.1.0
-//   git worktree remove /tmp/momus-v1.1.0
+//   git worktree remove --force /tmp/momus-v1.1.0   # package.json was stamped
 // Needs Chromium installed (`bun run src/cli.ts install-browser`). The
-// checkout's package.json must be that version: runs record it.
+// checkout must be at tag v<version>. Runs record package.json's version, which
+// the release workflow stamps from the tag rather than the repo carrying it
+// (ADR-0047), so this stamps the throwaway checkout the same way.
 import { mkdtempSync, rmSync, copyFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 const [root, version] = process.argv.slice(2);
 if (!root || !version) throw new Error("usage: bun make-fixture.ts <path to a release checkout> <version>");
-const pkg = await Bun.file(join(root, "package.json")).json();
-if (pkg.version !== version) throw new Error(`${root} is momus ${pkg.version}, not ${version}`);
+const tags = (await Bun.$`git -C ${root} tag --points-at HEAD`.text()).split("\n");
+if (!tags.includes(`v${version}`)) throw new Error(`${root} is not checked out at tag v${version}`);
+const pkgFile = Bun.file(join(root, "package.json"));
+await Bun.write(pkgFile, JSON.stringify({ ...(await pkgFile.json()), version }, null, 2) + "\n");
 
 const page = (title: string, bg = "#fff") => `<html><body style="margin:0;background:${bg}"><h1 style="font:20px sans-serif">${title}</h1></body></html>`;
 const site = (port: number, pages: Record<string, string>) => Bun.serve({
