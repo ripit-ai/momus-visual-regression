@@ -563,3 +563,26 @@ test("a change outside the moving regions is retried like any failure", async ()
   expect(devCalls).toBe(3);
   expect(readComparisons(db, 1)[0]!.retries).toBe(2);
 });
+
+test("configHash never hashes a request header value (ADR-0045)", () => {
+  const cfg = (token: string) => ConfigSchema.parse({
+    dev: "https://dev.example.com", prod: "https://www.example.com", requestHeaders: { Authorization: token } });
+  expect(configHash(cfg("Bearer one"))).toBe(configHash(cfg("Bearer two")));
+  const none = ConfigSchema.parse({ dev: "https://dev.example.com", prod: "https://www.example.com" });
+  expect(configHash(cfg("Bearer one"))).not.toBe(configHash(none));
+});
+
+test("the stored run config holds header names, not values", async () => {
+  const config = ConfigSchema.parse({
+    dev: "https://dev.example.com", prod: "https://www.example.com", viewports: [1280],
+    requestHeaders: { "CF-Access-Client-Secret": "s3cret" } });
+  const db = openDb(":memory:");
+  const runId = await runPipeline({
+    config, db, startedAt: "t", listJobs: async () => jobs(["/"], [1280]),
+    getDev: okPng, getProd: okPng,
+    diffPool: { submit: async (a) => okDiff(a), close: async () => {} },
+  });
+  const stored = readRun(db, runId)!.configJson;
+  expect(stored).not.toContain("s3cret");
+  expect(stored).toContain("CF-Access-Client-Secret");
+});

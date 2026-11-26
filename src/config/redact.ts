@@ -2,7 +2,7 @@
 import type { ResolvedConfig, SideSetup } from "./schema";
 import { canonicalJson } from "../targets/target";
 
-const REDACTED = "[redacted]";
+export const REDACTED = "[redacted]";
 
 /** A setup with its secrets replaced: fill values and the storageState file.
  * Selectors, step order and every other value stay, so a changed login flow is
@@ -19,9 +19,21 @@ export function setupIdentity(config: Pick<ResolvedConfig, "setup">): string | n
   return config.setup ? canonicalJson(redactSetup(config.setup.prod)) : null;
 }
 
+/** Header names stay, so a stored config still shows which headers a run
+ * sent; the values are where an access token lives (ADR-0045). */
+export function redactHeaders(headers: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.keys(headers).map((name) => [name, REDACTED]));
+}
+
 /** The config as stored on runs and the snapshot, and as hashed. The .sqlite
  * is often committed, so it never holds a credential or a hash of one. */
 export function redactConfig(config: ResolvedConfig): ResolvedConfig {
-  if (!config.setup) return config;
-  return { ...config, setup: { dev: redactSetup(config.setup.dev), prod: redactSetup(config.setup.prod) } };
+  const hasHeaders = Object.keys(config.requestHeaders).length > 0;
+  if (!config.setup && !hasHeaders) return config;
+  const requestHeaders = redactHeaders(config.requestHeaders);
+  if (!config.setup) return { ...config, requestHeaders };
+  return {
+    ...config, requestHeaders,
+    setup: { dev: redactSetup(config.setup.dev), prod: redactSetup(config.setup.prod) },
+  };
 }

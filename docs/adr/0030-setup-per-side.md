@@ -1,6 +1,6 @@
 # ADR-0030: Setup runs once per side; prod logs in only when a baseline is captured; only prod's redacted setup is gated
 
-**Date:** 2026-10-17 · **Status:** Accepted · **Implements:** [RFC-0004](../rfcs/0004-scripted-interactions.md)
+**Date:** 2026-10-17 · **Status:** Accepted (the `requestHeaders` limitation is closed by [ADR-0045](0045-request-headers-are-redacted.md)) · **Implements:** [RFC-0004](../rfcs/0004-scripted-interactions.md)
 
 ## Context
 

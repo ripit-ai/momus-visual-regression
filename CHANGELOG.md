@@ -17,6 +17,23 @@ lists a `Deprecated` section, even when it is empty.
   stays diffable while the list is empty
   ([ADR-0044](docs/adr/0044-block-hosts.md)).
 
+### Changed
+
+- **DB schema v7.** Opening an older `.sqlite` upgrades it in place; momus 1.1.0
+  and earlier can't open it afterwards.
+
+### Security
+
+- **`requestHeaders` values are no longer written to the `.sqlite`.** They were
+  stored as written in each run's and the baseline's config, which is where an
+  access token goes. The stored config now keeps header names only and the
+  config hash no longer covers the values. Opening an existing file removes
+  the values it holds, zeroes the bytes they occupied, and clears the config
+  hash of the runs that had them (`run.configHash` is then `null`). A copy of
+  the file made earlier still has them: rotate any token that was in a file you
+  shared or committed
+  ([ADR-0045](docs/adr/0045-request-headers-are-redacted.md)).
+
 ### Deprecated
 
 - Nothing.
