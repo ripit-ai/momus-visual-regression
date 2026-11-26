@@ -117,6 +117,21 @@ test("stabilize.remove defaults to [] and accepts selectors", () => {
   expect(r.stabilize.remove).toEqual([".x", "#y"]);
 });
 
+test("stabilize.blockHosts defaults to [] and lower-cases its entries", () => {
+  const d = ConfigSchema.parse({ dev: "https://d.com", prod: "https://p.com" });
+  expect(d.stabilize.blockHosts).toEqual([]);
+  const b = ConfigSchema.parse({ dev: "https://d.com", prod: "https://p.com",
+    stabilize: { blockHosts: ["CDN.Example.com", "*.kameleoon.eu", "127.0.0.1", " stats.example.com "] } });
+  expect(b.stabilize.blockHosts).toEqual(["cdn.example.com", "*.kameleoon.eu", "127.0.0.1", "stats.example.com"]);
+});
+
+test("stabilize.blockHosts rejects anything but a host name or *.domain", () => {
+  for (const bad of ["https://cdn.example.com", "cdn.example.com:8080", "cdn.example.com/js", "ads*", "*.", "*", "a.*.com", ""]) {
+    expect(() => ConfigSchema.parse({ dev: "https://d.com", prod: "https://p.com", stabilize: { blockHosts: [bad] } }),
+      bad).toThrow("stabilize.blockHosts entries are host names");
+  }
+});
+
 test("diff.allowAdded / allowRemoved default to false", () => {
   const c = ConfigSchema.parse({ dev: "https://d.com", prod: "https://p.com" });
   expect(c.diff.allowAdded).toBe(false);

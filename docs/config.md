@@ -41,6 +41,7 @@ export default defineConfig({
     disableAnimations: true,    // freeze CSS animations/transitions
     mask: [".carousel", ".ad-slot", "[data-timestamp]"],  // hide dynamic regions
     remove: [".cookie-banner"],                           // delete elements (space collapses)
+    blockHosts: ["*.hotjar.com"],                         // abort requests to these hosts
     waitForImages: true,        // wait for every <img> to load and decode
     // clock: "2026-01-01T00:00:00Z",  // pin Date, so relative times render the same
     reducedMotion: "reduce",    // emulate prefers-reduced-motion
@@ -182,6 +183,7 @@ pixels, so all of them are gated.
 | `stabilize.disableAnimations` | `true` | Freeze CSS animations and transitions. |
 | `stabilize.mask` | `[]` | Selectors hidden before capture; they keep their layout space. |
 | `stabilize.remove` | `[]` | Selectors deleted from the DOM before capture; the page reflows. |
+| `stabilize.blockHosts` | `[]` | Hosts whose requests are aborted during capture and setup: `"cdn.example.com"`, or `"*.example.com"` for its subdomains. |
 | `stabilize.waitForImages` | `true` | Wait for web fonts and every rendered `<img>` to load and decode. |
 | `stabilize.clock` | unset | Pin `Date` to this ISO instant. |
 | `stabilize.reducedMotion` | `"reduce"` | Emulate `prefers-reduced-motion`. |
@@ -193,6 +195,16 @@ are hidden with `visibility: hidden`, so the layout doesn't move. **`remove`**
 is for elements that shift layout (cookie banners, chat widgets): they are
 deleted, so their space collapses. Use narrow selectors: an overly broad
 `remove` (`*`, `body`) deletes the whole page and yields a blank screenshot.
+
+**`blockHosts`** keeps third-party scripts from running at all: analytics,
+session recorders, chat widgets, and A/B testing tools, which can show prod and
+dev different variants. A request to a listed host is aborted, on both sides,
+in setup and in every capture. An entry is a host name, matched exactly, or
+`*.` and a domain, which matches its subdomains but not the domain itself. No
+scheme, port, path or other wildcard. Entries are lower-cased, and their order
+doesn't matter to the gate. Blocking the site's own host fails every capture.
+While any host is blocked, service workers are too: request interception can't
+see a worker's own fetches ([ADR-0044](adr/0044-block-hosts.md)).
 
 **Repeatable captures.** `waitForImages` skips images hidden with
 `display:none` and is bounded by `timeoutMs`. `clock` makes "posted 3 minutes

@@ -8,6 +8,15 @@ lists a `Deprecated` section, even when it is empty.
 
 ## [Unreleased]
 
+### Added
+
+- **`stabilize.blockHosts`** aborts requests to listed hosts (exact, or
+  `*.example.com` for subdomains) during setup and capture, so trackers and
+  A/B testing scripts can't change what's rendered. It joins the baseline
+  compatibility gate; a baseline captured before it blocked nothing, so it
+  stays diffable while the list is empty
+  ([ADR-0044](docs/adr/0044-block-hosts.md)).
+
 ### Deprecated
 
 - Nothing.
